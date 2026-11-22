@@ -13,7 +13,7 @@ Người dùng sửa Excel/CSV trong thư mục OneDrive rồi nhắn; Claude t�
 - Nguồn: file Excel trên máy người dùng `C:\Users\Admin\OneDrive - PVFCCo\App Xuong Phu tro\Xuong Phu tro\Bang tin an toan hang tuan\Bang tin an toan hang tuan.xlsx` (người dùng chuyển vào thư mục `Xuong Phu tro`, xác nhận 17/11/2026; file gốc của người dùng, chọn 14/11/2026; KHÔNG dùng `Bang tin an toan - Du lieu.xlsx`). Bản offline `Bang tin an toan.html` nằm cùng thư mục.
 - Thư mục gốc trên máy người dùng: `C:\Users\Admin\OneDrive - PVFCCo\App Xuong Phu tro\Xuong Phu tro\` gồm `Bang tin an toan hang tuan\` và `Dashboard\` (cần device_request_folder_access thư mục này).
 - Stage file đó (device_stage_files), chép vào `web/data/bangtin.xlsx`, kiểm tra web đọc được (python3 -m http.server trong `web/` + google-chrome headless `--screenshot`), commit thẳng vào `main` với thông điệp “Cập nhật dữ liệu Tuần NN/YYYY”.
-- Không sửa nội dung Excel của người dùng khi chỉ cập nhật dữ liệu.
+- Không sửa nội dung Excel của người dùng khi chỉ cập nhật dữ liệu. Khi người dùng nhờ sửa chính tả (22/11/2026): sửa thẳng `xl/sharedStrings.xml` trong file .xlsx (giữ nguyên ảnh/định dạng, giữ thứ tự zip), rồi ghi lại vào thư mục OneDrive bằng device_commit_files (expectedMtimeMs) và chép vào web/data/bangtin.xlsx.
 
 ## Cấu trúc Excel (file gốc, 1 sheet, mỗi tuần một khối dòng)
 - Dòng 2–3 là tiêu đề (gộp ô): Tuần | GPLV (Số GPLV, Số GPLV không tuân thủ) | ĐNTĐ chủ trì | ĐNTĐ liên quan (từ Tuần 46) | Sự cố | Nearmiss | Số thẻ STOP (an toàn, KAT khắc phục ngay, KAT chờ khắc phục) | Quy định an toàn | Tồn đọng | Hành động khắc phục | Giải pháp và đề xuất | Biểu dương | Các công việc lưu ý tuần tới.
