@@ -86,6 +86,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
 .chartcard .top{display:flex;align-items:baseline;gap:8px}
 .chartcard .last{margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
 .chartcard .last b{font-size:18px}
+.chartcard .lastlbl{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .chartbox{position:relative;margin-top:6px}
 svg text{font-family:inherit}
 .tip{position:fixed;pointer-events:none;z-index:50;background:var(--surface);border:1px solid var(--border);box-shadow:0 6px 20px rgba(0,0,0,.12);border-radius:8px;padding:8px 10px;font-size:12.5px;display:none;max-width:320px}
@@ -560,7 +561,7 @@ function renderSample(){
   $('#sCharts').innerHTML = comps.map(function(c,i){
     var arr=byC[c], last=arr[arr.length-1], unit=(arr.filter(function(r){return r.unit;}).pop()||{}).unit||'';
     var nOut=arr.filter(function(r){return r.status==='out';}).length;
-    return '<div class="card chartcard"><div class="top"><div><h3>'+esc(c)+'</h3><div class="meta">'+[esc(unit), last.specRaw?'mong muốn '+esc(last.specRaw):'', arr.length+' lần đo', nOut?'<span class="st out clk" data-oc="'+esc(c)+'" title="Bấm để xem chi tiết">▲ '+nOut+' vượt</span>':''].filter(Boolean).join(' · ')+'</div></div><div class="last"><b>'+esc(last.raw)+'</b><div class="meta">'+fmtTs(last.ts)+' '+stHtml(last.status)+'</div></div><button class="zbtn" data-z="'+i+'" title="Phóng to toàn màn hình" aria-label="Phóng to">⛶</button></div><div class="chartbox" data-c="'+i+'"></div></div>';
+    return '<div class="card chartcard"><div class="top"><div><h3>'+esc(c)+'</h3><div class="meta">'+[esc(unit), last.specRaw?'mong muốn '+esc(last.specRaw):'', arr.length+' lần đo', nOut?'<span class="st out clk" data-oc="'+esc(c)+'" title="Bấm để xem chi tiết">▲ '+nOut+' vượt</span>':''].filter(Boolean).join(' · ')+'</div></div><div class="last" title="Lần đo gần nhất trong khoảng thời gian đang chọn — bấm vào điểm cuối biểu đồ để xem chi tiết"><div class="lastlbl">Giá trị gần nhất</div><b'+(last.status==='out'?' style="color:var(--crit)"':'')+'>'+esc(last.raw)+'</b>'+(unit?' <span class="sub">'+esc(unit)+'</span>':'')+'<div class="meta">'+fmtDate(last.date)+(last.time?' '+esc(last.time):'')+(last.kip?' · Kíp '+esc(last.kip):'')+' · '+stHtml(last.status)+'</div></div><button class="zbtn" data-z="'+i+'" title="Phóng to toàn màn hình" aria-label="Phóng to">⛶</button></div><div class="chartbox" data-c="'+i+'"></div></div>';
   }).join('') || '<div class="empty">Không có chỉ tiêu dạng số</div>';
   ZOOM.list = [];
   comps.forEach(function(c,i){
