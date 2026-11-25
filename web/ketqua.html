@@ -113,6 +113,7 @@ body:not(.is-admin) .adm{display:none!important}
 .cust{display:inline-flex;align-items:center;gap:4px}
 .cust input{width:132px}
 select#fUnit.on,select#fMonth.on,.cust.on input{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pdfa{color:var(--accent);text-decoration:none;cursor:pointer}a.pdfa:hover{text-decoration:underline}.pdfa.off{color:var(--text-2);text-decoration:underline dotted}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;z-index:90;opacity:0;transition:opacity .25s;pointer-events:none}.toast.show{opacity:1}
 .foot{color:var(--muted);font-size:12px;margin-top:24px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -228,7 +229,7 @@ var $ = function(s){ return document.querySelector(s); };
 var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
 var PARSER_VERSION = 9;
-var S = { unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
+var S = { paths:{}, pdfBase:'', unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
 try { var rg = localStorage.getItem('kqpt-range'); if (rg) S.range = rg; } catch(e){}
 
 /* ---------------- pdf.js (file đi kèm trang) ---------------- */
@@ -324,10 +325,11 @@ function toast(t){ var e=$('#toast'); e.textContent=t; e.classList.add('show'); 
 async function connect(){
   // Dữ liệu: file tĩnh data/ketqua.json (nếu có) + các lần nạp phiếu trên web (/api/ketqua). Lần nạp sau đè lần trước theo mã phiếu.
   var merged = {}, lastAt = null, lastN = 0;
+  try { var cf = await fetch('data/ketqua-config.json', {cache:'no-store'}); if (cf.ok){ var cj = await cf.json(); S.pdfBase = String(cj.pdfBase||'').replace(/\/+$/,''); } } catch(e){}
   try { var f = await fetch('data/ketqua.json', {cache:'no-store'}); if (f.ok){ var fj = await f.json(); Object.assign(merged, fj.reports||{}); lastAt = fj.at || null; } } catch(e){}
   try {
     var r = await fetch('/api/ketqua', {cache:'no-store', credentials:'same-origin'});
-    if (r.ok){ var j = await r.json(); (j.batches||[]).forEach(function(b){ Object.assign(merged, b.reports||{}); if (!lastAt || b.at > lastAt){ lastAt=b.at; lastN=Object.keys(b.reports||{}).length; } }); }
+    if (r.ok){ var j = await r.json(); S.paths = j.paths || {}; (j.batches||[]).forEach(function(b){ Object.assign(merged, b.reports||{}); if (!lastAt || b.at > lastAt){ lastAt=b.at; lastN=Object.keys(b.reports||{}).length; } }); }
   } catch(e){ setStatus('', 'Không tải được dữ liệu web'); }
   S.chunks = {all:{reports:merged}}; S.meta = lastAt ? {at:lastAt, added:lastN} : {}; S.loaded = true;
   showMeta(); rebuild();
@@ -343,7 +345,18 @@ async function upload(files){
   if (!document.body.classList.contains('is-admin')){ toast('Cần đăng nhập quản trị'); return; }
   var list = files.filter(function(f){ return KQPT.isReportName(f.name); });
   var todo = list.filter(function(f){ var k = S.known[KQPT.docId(f.name)]; return !k || k.m !== f.lastModified || k.s !== f.size || k.v !== PARSER_VERSION; });
-  if (!todo.length){ setStatus('live', 'Đã kiểm tra ' + list.length + ' phiếu — không có phiếu mới'); return; }
+  // ghi đường dẫn từng phiếu (bỏ tên thư mục gốc đã chọn) để bấm tên phiếu mở được file trên OneDrive
+  var np = {}, nNew = 0;
+  list.forEach(function(f){ var rp=(f.webkitRelativePath||f.name).split('/').slice(1).join('/')||f.name; var id=KQPT.docId(f.name); if (S.paths[id]!==rp){ np[id]=rp; nNew++; } });
+  if (nNew){
+    try {
+      var ids=Object.keys(np);
+      for (var q=0;q<ids.length;q+=2000){ var part={}; ids.slice(q,q+2000).forEach(function(k){ part[k]=np[k]; });
+        var pr=await fetch('/api/ketqua/paths',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({paths:part})});
+        if (pr.ok) Object.assign(S.paths, part); }
+    } catch(e){ console.warn('paths', e); }
+  }
+  if (!todo.length){ setStatus('live', 'Đã kiểm tra ' + list.length + ' phiếu — không có phiếu mới' + (nNew ? ' · đã ghi đường dẫn ' + nNew + ' file PDF' : '')); render(); return; }
   S.busy = true; showProgress(0, todo.length);
   var parsed = {}, done = 0, i = 0, errors = 0;
   async function worker(){
@@ -665,7 +678,7 @@ function renderData(){
   dataRows=filtered().filter(function(r){ return (!onlyOut||r.status==='out') && (!q || KQPT.fold(S.sIdx[r.sk].label+' '+S.sIdx[r.sk].point+' '+r.comp+' '+r.file).indexOf(q)>=0); }).reverse();
   $('#dMeta').textContent = dataRows.length.toLocaleString('vi-VN')+' kết quả'+(dataRows.length>1000?' (hiển thị 1.000 dòng mới nhất; CSV xuất đủ)':'');
   $('#dTable').innerHTML='<tr><th>Ngày</th><th>Giờ</th><th>Kíp</th><th>Điểm mẫu</th><th>Tên mẫu</th><th>Chỉ tiêu</th><th class="num">Kết quả</th><th>Đơn vị</th><th>Mong muốn</th><th>Đánh giá</th><th>Phiếu</th></tr>'+
-    dataRows.slice(0,1000).map(function(r){ var s=S.sIdx[r.sk]; return '<tr><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td><td>'+esc(s.point)+'</td><td>'+esc(s.label)+'</td><td>'+esc(r.comp)+'</td><td class="num">'+esc(r.raw)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.specRaw)+'</td><td>'+stHtml(r.status)+'</td><td class="sub">'+esc(r.file)+'</td></tr>'; }).join('');
+    dataRows.slice(0,1000).map(function(r){ var s=S.sIdx[r.sk]; return '<tr><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td><td>'+esc(s.point)+'</td><td>'+esc(s.label)+'</td><td>'+esc(r.comp)+'</td><td class="num">'+esc(r.raw)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.specRaw)+'</td><td>'+stHtml(r.status)+'</td>'+fileCell(r.file)+'</tr>'; }).join('');
 }
 function exportCsv(){
   var q=function(v){ return String(v==null?'':v).replace(/[\t\r\n]+/g,' '); };
@@ -715,6 +728,21 @@ $('#sCharts').addEventListener('click', function(e){ var b=e.target.closest('.zb
 $('#dailyZoom').onclick=function(){ ZOOM.list=[ZOOM.daily]; openZoom(0); };
 /* ---------------- sự kiện ---------------- */
 $$('nav [data-tab]').forEach(function(b){ b.onclick=function(){ $$('nav [data-tab]').forEach(function(x){x.classList.toggle('on',x===b);}); S.tab=b.dataset.tab; render(); }; });
+/* ---------------- mở file PDF trên OneDrive ---------------- */
+function pdfUrl(file){
+  if (!S.pdfBase || !file) return '';
+  var rp = S.paths[KQPT.docId(file)]; if (!rp) return '';
+  return S.pdfBase + '/' + rp.split('/').map(encodeURIComponent).join('/') + '?web=1';
+}
+function fileCell(file){
+  var u = pdfUrl(file);
+  return u ? '<td class="sub"><a class="pdfa" href="'+esc(u)+'" target="_blank" rel="noopener" title="Mở phiếu PDF trên OneDrive (cần đăng nhập tài khoản PVFCCo)">📄 '+esc(file)+'</a></td>'
+           : '<td class="sub"><span class="pdfa off" data-file="'+esc(file)+'" title="Bấm để biết cách mở file">'+esc(file)+'</span></td>';
+}
+document.addEventListener('click', function(e){
+  var a=e.target.closest('.pdfa.off'); if(!a) return;
+  toast(!S.pdfBase ? 'Chưa cấu hình đường dẫn OneDrive cho phiếu PDF' : 'Chưa có đường dẫn của phiếu này — quản trị viên bấm ⬆ Nạp phiếu mới một lần để cập nhật');
+});
 /* ---------------- chi tiết các lần vượt ---------------- */
 var OUT_SK=null;
 function overTxt(r){
@@ -734,7 +762,7 @@ function showOut(sk, comp, focus){
   var specs={}; all.forEach(function(r){ if(r.specRaw) specs[r.specRaw]=1; });
   $('#oMeta').innerHTML = esc(s.label) + (s.point?' · '+esc(s.point):'') + ' · '+all.length+' lần đo trong khoảng thời gian đang chọn' + (comp&&Object.keys(specs).length?' · mong muốn '+esc(Object.keys(specs).join(' / ')):'');
   $('#oTable').innerHTML = rows.length ? '<tr><th>Ngày</th><th>Giờ</th><th>Kíp</th>'+(comp?'':'<th>Chỉ tiêu</th>')+'<th class="num">Kết quả</th><th>Mong muốn</th><th>Mức vượt</th><th>Phiếu</th></tr>' + rows.map(function(r){
-    return '<tr'+(isF(r)?' class="hl"':'')+'><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td>'+(comp?'':'<td>'+esc(r.comp)+'</td>')+'<td class="num" style="'+(r.status==='out'?'color:var(--crit);font-weight:700':'')+'">'+esc(r.raw)+' <span class="sub">'+esc(r.unit)+'</span></td><td>'+esc(r.specRaw)+'</td><td class="over">'+(r.status==='out'?esc(overTxt(r)):'<span class="st ok">✓ Đạt</span>')+'</td><td class="sub">'+esc(r.file)+'</td></tr>';
+    return '<tr'+(isF(r)?' class="hl"':'')+'><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td>'+(comp?'':'<td>'+esc(r.comp)+'</td>')+'<td class="num" style="'+(r.status==='out'?'color:var(--crit);font-weight:700':'')+'">'+esc(r.raw)+' <span class="sub">'+esc(r.unit)+'</span></td><td>'+esc(r.specRaw)+'</td><td class="over">'+(r.status==='out'?esc(overTxt(r)):'<span class="st ok">✓ Đạt</span>')+'</td>'+fileCell(r.file)+'</tr>';
   }).join('') : '<tr><td class="empty">Không có kết quả vượt giới hạn trong khoảng thời gian đang chọn.</td></tr>';
   $('#oChart').classList.toggle('hide', S.tab==='sample' && S.sel===sk);
   $('#odlg').classList.remove('hide');

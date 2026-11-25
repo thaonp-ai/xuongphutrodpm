@@ -204,7 +204,8 @@ async function api(req, env, url) {
     } while (cursor);
     keys.sort();
     const vals = await Promise.all(keys.map((k) => env.NHANSU.get(k)));
-    return new Response('{"batches":[' + vals.filter(Boolean).join(",") + "]}", {
+    const paths = (await env.NHANSU.get("kq:paths")) || "{}";
+    return new Response('{"batches":[' + vals.filter(Boolean).join(",") + '],"paths":' + paths + "}", {
       headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
     });
   }
@@ -225,6 +226,24 @@ async function api(req, env, url) {
     const key = "kq:b:" + Date.now().toString(36).padStart(10, "0") + "-" + Math.random().toString(36).slice(2, 8);
     await env.NHANSU.put(key, JSON.stringify({ at, by: user, reports: reps }));
     return json({ ok: true, key, n: ids.length, at });
+  }
+  // Đường dẫn tương đối của từng phiếu trong thư mục "Kết quả phân tích" (để mở file PDF trên OneDrive)
+  if (p === "/api/ketqua/paths" && m === "PUT") {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    const text = await req.text();
+    if (text.length > 1.5e6) return json({ error: "Gói dữ liệu quá lớn" }, 413);
+    let b; try { b = JSON.parse(text); } catch { return json({ error: "Dữ liệu không hợp lệ" }, 400); }
+    const np = b && b.paths;
+    if (!np || typeof np !== "object") return json({ error: "Thiếu đường dẫn" }, 400);
+    const cur = (await env.NHANSU.get("kq:paths", "json")) || {};
+    let n = 0;
+    for (const id of Object.keys(np)) {
+      const v = String(np[id] || "");
+      if (/^[A-Za-z0-9_-]{1,40}$/.test(id) && v.length < 300 && !v.includes("..") && cur[id] !== v) { cur[id] = v; n++; }
+    }
+    if (n) await env.NHANSU.put("kq:paths", JSON.stringify(cur));
+    return json({ ok: true, changed: n });
   }
   if (p === "/api/ketqua/reset" && m === "POST") {
     if (!env.NHANSU) return json(NEED_KV, 503);
