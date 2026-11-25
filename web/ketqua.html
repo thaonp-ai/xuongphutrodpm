@@ -97,6 +97,18 @@ svg text{font-family:inherit}
 .checks label{display:inline-flex;gap:5px;align-items:center;cursor:pointer}
 .hide{display:none!important}
 body:not(.is-admin) .adm{display:none!important}
+.chip.out,.badge,.st.out.clk{cursor:pointer}
+.chip.out:hover{outline:2px solid var(--crit);outline-offset:1px}
+.badge:hover{filter:brightness(1.12)}
+.st.out.clk{text-decoration:underline dotted}
+.odlg{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.odlg .box{background:var(--surface);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(860px,100%);max-height:88vh;display:flex;flex-direction:column}
+.odlg .hd{display:flex;gap:10px;align-items:flex-start;padding:16px 18px 10px;border-bottom:1px solid var(--border)}
+.odlg .hd h2{margin:0;font-size:17px;color:var(--crit)}
+.odlg .bd{padding:6px 18px 12px;overflow:auto}
+.odlg .ft{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.odlg tr.hl td{background:var(--crit-soft)}
+.odlg .over{color:var(--crit);font-weight:600;white-space:nowrap}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;z-index:90;opacity:0;transition:opacity .25s;pointer-events:none}.toast.show{opacity:1}
 .foot{color:var(--muted);font-size:12px;margin-top:24px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -199,6 +211,7 @@ body:not(.is-admin) .adm{display:none!important}
 </main>
 <div class="zoom hide" id="zoom" role="dialog" aria-modal="true" aria-label="Biểu đồ phóng to"><div class="zhead"><div style="min-width:0"><h2 id="zTitle"></h2><div class="meta" id="zMeta"></div></div><div class="znav"><button class="btn" id="zPrev" title="Biểu đồ trước (←)">‹</button><button class="btn" id="zNext" title="Biểu đồ sau (→)">›</button><button class="btn" id="zClose" title="Đóng (Esc)">✕ Đóng</button></div></div><div class="zbody"><div class="chartbox" id="zChart"></div></div></div>
 <div class="tip" id="tip"></div>
+<div class="odlg hide" id="odlg" role="dialog" aria-modal="true"><div class="box"><div class="hd"><div style="flex:1;min-width:0"><h2 id="oTitle"></h2><div class="meta" id="oMeta"></div></div><button class="btn" id="oClose">✕ Đóng</button></div><div class="bd"><table id="oTable"></table></div><div class="ft"><button class="btn" id="oChart">📈 Xem biểu đồ điểm mẫu</button><button class="btn primary" id="oClose2">Đóng</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="lib/kq/parser.js"></script>
 <script>
@@ -454,6 +467,12 @@ function lineChart(el, series, opt){
     showTip(html, e.clientX, e.clientY);
   });
   svg.querySelector('.hit').addEventListener('mouseleave', function(){ hideTip(); xh.setAttribute('visibility','hidden'); });
+  svg.querySelector('.hit').addEventListener('click', function(e){
+    var bx = svg.getBoundingClientRect().left, mx = e.clientX - bx, best=null, bd=1e9;
+    flat.forEach(function(f){ var d=Math.abs(f.x-mx); if(d<bd){bd=d;best=f;} });
+    if (best && bd<=40 && best.p.sk && best.p.comp){ hideTip(); showOut(best.p.sk, best.p.comp, best.p); }
+  });
+  svg.querySelector('.hit').style.cursor='pointer';
 }
 
 function barChart(el, data, hh){ // [{label, v, flag, tip}]
@@ -518,8 +537,8 @@ function renderOverview(){
     var cs=L[s.key], comps=Object.keys(cs), nOut=comps.filter(function(c){return cs[c].status==='out';}).length;
     var last=Math.max.apply(null,comps.map(function(c){return cs[c].ts;}));
     comps.sort(function(a,b){ return (cs[b].status==='out')-(cs[a].status==='out'); });
-    return {s:s,nOut:nOut,last:last,html:'<div class="card scard'+(nOut?' bad':'')+'" data-sk="'+esc(s.key)+'"><div style="display:flex;gap:8px"><div style="min-width:0"><h3>'+esc(s.label)+'</h3><div class="meta">'+esc(s.point)+(s.point?' · ':'')+'mới nhất '+fmtTs(last)+'</div></div>'+(nOut?'<span class="badge" title="Số chỉ tiêu vượt ở lần đo gần nhất">'+nOut+'</span>':'')+'</div><div class="chips">'+
-      comps.slice(0,12).map(function(c){ var r=cs[c]; return '<span class="chip'+(r.status==='out'?' out':'')+'" title="'+esc(r.specRaw?'Mong muốn: '+r.specRaw:'')+'">'+(r.status==='out'?'▲ ':'')+esc(c)+' <b>'+esc(r.raw)+'</b></span>'; }).join('')+(comps.length>12?'<span class="chip">+'+(comps.length-12)+'</span>':'')+'</div></div>'};
+    return {s:s,nOut:nOut,last:last,html:'<div class="card scard'+(nOut?' bad':'')+'" data-sk="'+esc(s.key)+'"><div style="display:flex;gap:8px"><div style="min-width:0"><h3>'+esc(s.label)+'</h3><div class="meta">'+esc(s.point)+(s.point?' · ':'')+'mới nhất '+fmtTs(last)+'</div></div>'+(nOut?'<span class="badge" title="Số chỉ tiêu vượt ở lần đo gần nhất — bấm để xem chi tiết">'+nOut+'</span>':'')+'</div><div class="chips">'+
+      comps.slice(0,12).map(function(c){ var r=cs[c]; return '<span class="chip'+(r.status==='out'?' out':'')+'" data-comp="'+esc(c)+'" title="'+esc(r.status==='out'?'Bấm để xem chi tiết các lần vượt'+(r.specRaw?' · mong muốn '+r.specRaw:''):(r.specRaw?'Mong muốn: '+r.specRaw:''))+'">'+(r.status==='out'?'▲ ':'')+esc(c)+' <b>'+esc(r.raw)+'</b></span>'; }).join('')+(comps.length>12?'<span class="chip">+'+(comps.length-12)+'</span>':'')+'</div></div>'};
   }).sort(function(a,b){ return (b.nOut>0)-(a.nOut>0) || b.last-a.last; });
   $('#sampleCards').innerHTML = cards.length ? cards.map(function(c){return c.html;}).join('') : (S.recs.length?'<div class="empty">Không có kết quả trong khoảng thời gian / bộ lọc đã chọn.</div>':$('#sampleCards').innerHTML);
 }
@@ -541,7 +560,7 @@ function renderSample(){
   $('#sCharts').innerHTML = comps.map(function(c,i){
     var arr=byC[c], last=arr[arr.length-1], unit=(arr.filter(function(r){return r.unit;}).pop()||{}).unit||'';
     var nOut=arr.filter(function(r){return r.status==='out';}).length;
-    return '<div class="card chartcard"><div class="top"><div><h3>'+esc(c)+'</h3><div class="meta">'+[esc(unit), last.specRaw?'mong muốn '+esc(last.specRaw):'', arr.length+' lần đo', nOut?'<span class="st out">▲ '+nOut+' vượt</span>':''].filter(Boolean).join(' · ')+'</div></div><div class="last"><b>'+esc(last.raw)+'</b><div class="meta">'+fmtTs(last.ts)+' '+stHtml(last.status)+'</div></div><button class="zbtn" data-z="'+i+'" title="Phóng to toàn màn hình" aria-label="Phóng to">⛶</button></div><div class="chartbox" data-c="'+i+'"></div></div>';
+    return '<div class="card chartcard"><div class="top"><div><h3>'+esc(c)+'</h3><div class="meta">'+[esc(unit), last.specRaw?'mong muốn '+esc(last.specRaw):'', arr.length+' lần đo', nOut?'<span class="st out clk" data-oc="'+esc(c)+'" title="Bấm để xem chi tiết">▲ '+nOut+' vượt</span>':''].filter(Boolean).join(' · ')+'</div></div><div class="last"><b>'+esc(last.raw)+'</b><div class="meta">'+fmtTs(last.ts)+' '+stHtml(last.status)+'</div></div><button class="zbtn" data-z="'+i+'" title="Phóng to toàn màn hình" aria-label="Phóng to">⛶</button></div><div class="chartbox" data-c="'+i+'"></div></div>';
   }).join('') || '<div class="empty">Không có chỉ tiêu dạng số</div>';
   ZOOM.list = [];
   comps.forEach(function(c,i){
@@ -627,12 +646,42 @@ $('#sCharts').addEventListener('click', function(e){ var b=e.target.closest('.zb
 $('#dailyZoom').onclick=function(){ ZOOM.list=[ZOOM.daily]; openZoom(0); };
 /* ---------------- sự kiện ---------------- */
 $$('nav [data-tab]').forEach(function(b){ b.onclick=function(){ $$('nav [data-tab]').forEach(function(x){x.classList.toggle('on',x===b);}); S.tab=b.dataset.tab; render(); }; });
+/* ---------------- chi tiết các lần vượt ---------------- */
+var OUT_SK=null;
+function overTxt(r){
+  var sp=r.spec; if(!sp||r.v==null) return '';
+  if (sp.max!=null && r.v>=sp.max){ var d=r.v-sp.max; return '+'+fmtNum(d)+(sp.max?' ('+(d/Math.abs(sp.max)*100).toFixed(0)+'%)':'')+' trên max'; }
+  if (sp.min!=null && r.v<sp.min){ var d2=sp.min-r.v; return '−'+fmtNum(d2)+(sp.min?' ('+(d2/Math.abs(sp.min)*100).toFixed(0)+'%)':'')+' dưới min'; }
+  return '';
+}
+function showOut(sk, comp, focus){
+  var s=S.sIdx[sk]; if(!s) return; OUT_SK=sk;
+  var all=filtered().filter(function(r){ return r.sk===sk && (!comp || r.comp===comp); });
+  var outs=all.filter(function(r){ return r.status==='out'; });
+  var isF=function(r){ return focus && r.ts===focus.ts && r.comp===focus.comp && r.raw===focus.raw; };
+  var rows = focus && !outs.some(isF) ? outs.concat([focus]) : outs;
+  rows = rows.slice().sort(function(a,b){ return b.ts-a.ts; });
+  $('#oTitle').textContent = (outs.length ? '▲ '+outs.length+' lần vượt giới hạn' : 'Không có lần vượt') + ' · ' + (comp || 'tất cả chỉ tiêu');
+  var specs={}; all.forEach(function(r){ if(r.specRaw) specs[r.specRaw]=1; });
+  $('#oMeta').innerHTML = esc(s.label) + (s.point?' · '+esc(s.point):'') + ' · '+all.length+' lần đo trong khoảng thời gian đang chọn' + (comp&&Object.keys(specs).length?' · mong muốn '+esc(Object.keys(specs).join(' / ')):'');
+  $('#oTable').innerHTML = rows.length ? '<tr><th>Ngày</th><th>Giờ</th><th>Kíp</th>'+(comp?'':'<th>Chỉ tiêu</th>')+'<th class="num">Kết quả</th><th>Mong muốn</th><th>Mức vượt</th><th>Phiếu</th></tr>' + rows.map(function(r){
+    return '<tr'+(isF(r)?' class="hl"':'')+'><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td>'+(comp?'':'<td>'+esc(r.comp)+'</td>')+'<td class="num" style="'+(r.status==='out'?'color:var(--crit);font-weight:700':'')+'">'+esc(r.raw)+' <span class="sub">'+esc(r.unit)+'</span></td><td>'+esc(r.specRaw)+'</td><td class="over">'+(r.status==='out'?esc(overTxt(r)):'<span class="st ok">✓ Đạt</span>')+'</td><td class="sub">'+esc(r.file)+'</td></tr>';
+  }).join('') : '<tr><td class="empty">Không có kết quả vượt giới hạn trong khoảng thời gian đang chọn.</td></tr>';
+  $('#oChart').classList.toggle('hide', S.tab==='sample' && S.sel===sk);
+  $('#odlg').classList.remove('hide');
+}
+function closeOut(){ $('#odlg').classList.add('hide'); }
+$('#oClose').onclick=closeOut; $('#oClose2').onclick=closeOut;
+$('#odlg').addEventListener('click', function(e){ if(e.target===this) closeOut(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !$('#odlg').classList.contains('hide')) closeOut(); });
+$('#oChart').onclick=function(){ closeOut(); if(OUT_SK) goSample(OUT_SK); };
+$('#sCharts').addEventListener('click', function(e){ var o=e.target.closest('[data-oc]'); if(o && S.sel) showOut(S.sel, o.dataset.oc); });
 function goSample(sk){ S.sel=sk; $$('nav [data-tab]').forEach(function(x){x.classList.toggle('on',x.dataset.tab==='sample');}); S.tab='sample'; render(); window.scrollTo(0,0); }
 $$('#range button').forEach(function(x){ x.classList.toggle('on', x.dataset.d===S.range); });
 $('#range').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; $$('#range button').forEach(function(x){x.classList.toggle('on',x===b);}); S.range=b.dataset.d; try{localStorage.setItem('kqpt-range',S.range);}catch(_){} render(); };
 $('#fType').onchange=function(){ S.type=this.value; render(); };
 $('#fKip').onchange=function(){ S.kip=this.value; render(); };
-$('#sampleCards').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(c) goSample(c.dataset.sk); };
+$('#sampleCards').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(!c) return; var ch=e.target.closest('.chip.out'); if(ch){ showOut(c.dataset.sk, ch.dataset.comp); return; } if(e.target.closest('.badge')){ showOut(c.dataset.sk, null); return; } goSample(c.dataset.sk); };
 $('#outTable').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(c) goSample(c.dataset.sk); };
 $('#sList').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(c){ S.sel=c.dataset.sk; renderSample(); } };
 $('#sSearch').oninput=function(){ renderSample(); };
