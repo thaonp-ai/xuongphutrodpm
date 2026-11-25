@@ -666,10 +666,10 @@ function setSync(t){$("sync").textContent=t}
 function banner(t){const b=$("banner");b.innerHTML=t||"";b.classList.toggle("show",!!t)}
 function applyRole(){document.body.classList.toggle("is-admin",S.admin);if(S.tab==="list")renderList();else if(S.loaded)renderDetail()}
 // Đăng nhập dùng chung cho cả web: nút Đăng nhập nằm trên thanh "Xưởng Phụ Trợ" của trang chính.
-async function checkAuth(){try{const r=await fetch("/api/auth/me",{cache:"no-store",credentials:"same-origin"});const j=await r.json();setAdmin(!!j.user)}catch(e){setAdmin(false)}}
+async function checkAuth(){try{const r=await fetch("/api/auth/me",{cache:"no-store",credentials:"same-origin"});const j=await r.json();setAdmin(!!j.user&&(j.role||"admin")==="admin")}catch(e){setAdmin(false)}}
 function setAdmin(v){if(S.admin===v)return;S.admin=v;applyRole()}
 function sessionLost(){setAdmin(false);toast("Phiên đăng nhập đã hết hạn – vui lòng đăng nhập lại (nút Đăng nhập ở góc trên bên phải)");try{parent!==window&&parent.postMessage({type:"xpt-auth-refresh"},location.origin)}catch(e){}}
-window.addEventListener("message",e=>{if(e.origin===location.origin&&e.data&&e.data.type==="xpt-auth")setAdmin(!!e.data.user)});
+window.addEventListener("message",e=>{if(e.origin===location.origin&&e.data&&e.data.type==="xpt-auth")setAdmin(!!e.data.user&&(e.data.role||"admin")==="admin")});
 
 // ---------- import / export ----------
 function parseCSV(text){

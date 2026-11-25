@@ -175,7 +175,8 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
     </div>
     <div class="grow"></div>
     <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusTxt">Đang kết nối…</span></span>
-    <label class="btn primary adm" id="btnUpload" title="Chọn thư mục “Kết quả phân tích” để nạp các phiếu mới (chỉ quản trị viên)">⬆ Nạp phiếu mới
+    <button class="btn adm" id="btnHist" title="Xem lịch sử các lần nạp phiếu">📜 Lịch sử nạp</button>
+    <label class="btn primary adm" id="btnUpload" title="Chọn thư mục “Kết quả phân tích” để nạp các phiếu mới (cần đăng nhập)">⬆ Nạp phiếu mới
       <input type="file" id="dirInput" webkitdirectory multiple style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     </label>
   </div>
@@ -200,7 +201,7 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
   <div class="banner hide" id="banner">
     <div style="flex:1;min-width:260px">
       <b id="bannerTitle">Chưa có dữ liệu</b>
-      <div class="sub" id="bannerText">Quản trị viên đăng nhập (nút 🔒 Đăng nhập ở góc trên bên phải), bấm <b>⬆ Nạp phiếu mới</b> và chọn thư mục “Kết quả phân tích” (OneDrive › App Xuong Phu tro › Xuong Phu tro). Trang đọc các phiếu PDF ngay trên máy và lưu kết quả để mọi người mở web đều xem được.</div>
+      <div class="sub" id="bannerText">Quản trị viên hoặc tài khoản được cấp quyền đăng nhập (nút 🔒 Đăng nhập ở góc trên bên phải), bấm <b>⬆ Nạp phiếu mới</b> và chọn thư mục “Kết quả phân tích” (OneDrive › App Xuong Phu tro › Xuong Phu tro). Trang đọc các phiếu PDF ngay trên máy và lưu kết quả để mọi người mở web đều xem được.</div>
       <div class="progress hide" id="prog"><i></i></div>
     </div>
     
@@ -373,14 +374,14 @@ async function connect(){
   showMeta(); rebuild();
 }
 async function checkAuth(){
-  try { var r = await fetch('/api/auth/me', {cache:'no-store', credentials:'same-origin'}); var j = await r.json(); setAdmin(!!j.user); } catch(e){ setAdmin(false); }
+  try { var r = await fetch('/api/auth/me', {cache:'no-store', credentials:'same-origin'}); var j = await r.json(); setAdmin(!!j.user, j.role); } catch(e){ setAdmin(false); }
 }
-function setAdmin(v){ document.body.classList.toggle('is-admin', !!v); }
-window.addEventListener('message', function(e){ if (e.origin===location.origin && e.data && e.data.type==='xpt-auth') setAdmin(!!e.data.user); });
+function setAdmin(v, role){ v = !!v && (!role || role==='admin' || role==='kq'); document.body.classList.toggle('is-admin', v); document.body.classList.toggle('is-root', v && (!role || role==='admin')); }
+window.addEventListener('message', function(e){ if (e.origin===location.origin && e.data && e.data.type==='xpt-auth') setAdmin(!!e.data.user, e.data.role); });
 
 /* ---------------- nạp phiếu từ thư mục ---------------- */
 async function upload(files){
-  if (!document.body.classList.contains('is-admin')){ toast('Cần đăng nhập quản trị'); return; }
+  if (!document.body.classList.contains('is-admin')){ toast('Cần đăng nhập (quản trị viên hoặc tài khoản được cấp quyền nạp phiếu)'); return; }
   var list = files.filter(function(f){ return KQPT.isReportName(f.name); });
   var todo = list.filter(function(f){ var k = S.known[KQPT.docId(f.name)]; return !k || k.m !== f.lastModified || k.s !== f.size || k.v !== PARSER_VERSION; });
   // ghi đường dẫn từng phiếu (bỏ tên thư mục gốc đã chọn) để bấm tên phiếu mở được file trên OneDrive
@@ -409,11 +410,11 @@ async function upload(files){
   }
   try {
     await Promise.all([worker(), worker(), worker()]);
-    var ids = Object.keys(parsed), batch = {}, size = 0, sent = 0, packs = [];
+    var ids = Object.keys(parsed), batch = {}, size = 0, sent = 0, packs = [], up = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     ids.forEach(function(id, j){ batch[id] = parsed[id]; size += JSON.stringify(parsed[id]).length;
       if (size > 300000 || Object.keys(batch).length >= 100 || j === ids.length-1){ packs.push(batch); batch = {}; size = 0; } });
     for (var k=0;k<packs.length;k++){
-      var r = await fetch('/api/ketqua', {method:'PUT', credentials:'same-origin', headers:{'content-type':'application/json'}, body: JSON.stringify({reports: packs[k]})});
+      var r = await fetch('/api/ketqua', {method:'PUT', credentials:'same-origin', headers:{'content-type':'application/json'}, body: JSON.stringify({reports: packs[k], up: up})});
       var jj = {}; try { jj = await r.json(); } catch(e){}
       if (!r.ok){ if (r.status===401){ setAdmin(false); try{ parent!==window && parent.postMessage({type:'xpt-auth-refresh'}, location.origin); }catch(e){} } throw new Error(jj.error || ('Lỗi ' + r.status)); }
       sent += Object.keys(packs[k]).length; showProgress(k+1, packs.length, 'Đang lưu');
@@ -832,6 +833,7 @@ var rz; window.addEventListener('resize', function(){ clearTimeout(rz); rz=setTi
 render();
 loadUnits().then(connect);
 checkAuth();
+document.getElementById('btnHist').onclick=function(){ try{ parent!==window ? parent.postMessage({type:'xpt-open-log', act:'kq'}, location.origin) : toast('Mở từ trang chính để xem lịch sử'); }catch(e){} };
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState==='visible' && !S.busy){ connect(); checkAuth(); } });
 })();
 

@@ -10,7 +10,14 @@
 //
 // /api/nhansu: dữ liệu tab Nhân sự. Xem công khai; sửa cần đăng nhập.
 //   Nguồn = bản mới hơn (updatedAt) giữa KV "current" và file web/data/nhansu.json.
-// KV binding NHANSU (Wrangler tự tạo khi triển khai): current, prev, account, sess:<token>, fail:<ip>, kq:b:<thời điểm> (phiếu kết quả phân tích).
+// KV binding NHANSU (Wrangler tự tạo khi triển khai): current, prev, account, sess:<token>, fail:<ip>, kq:b:<thời điểm> (phiếu kết quả phân tích),
+//   users (tài khoản phụ do quản trị viên tạo), log:<thời điểm đảo> (lịch sử tải lên/chỉnh sửa).
+//
+// Phân quyền (người dùng yêu cầu 25/11/2026):
+//   admin = tài khoản KV "account" (thaonp): làm được mọi việc, quản lý tài khoản, xem toàn bộ lịch sử.
+//   kq    = tài khoản phụ trong KV "users": chỉ nạp phiếu tab Kết quả phân tích, xem lịch sử của chính mình.
+//   GET/POST /api/users, /api/users/update, /api/users/delete (chỉ admin)
+//   GET /api/log, GET /api/log/item?k=… (lịch sử; mỗi sự kiện 1 khóa KV, tóm tắt nằm trong metadata)
 
 const FILE = "/data/nhansu.json";
 const TRAIN = ["TC", "DCS", "NH", "GT", "RIVER", "DEMI", "NITO", "RAW", "NH3", "XLNT", "NHR"];
@@ -56,19 +63,59 @@ async function checkPassword(env, user, password) {
   return sameBytes(h, unb64(a.hash));
 }
 
+const ROLES = { kq: "Nạp phiếu Kết quả phân tích" };
+async function getUsers(env) { return (env.NHANSU && (await env.NHANSU.get("users", "json"))) || {}; }
+async function hashPw(pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return { salt: b64(salt), hash: b64(await pbkdf2(String(pw), salt, 100000)), iter: 100000 };
+}
+// Kiểm tra đăng nhập cho cả quản trị viên và tài khoản phụ → {user, role, name} hoặc null
+async function verifyLogin(env, user, password) {
+  if (!password) return null;
+  if (await checkPassword(env, user, password)) return { user, role: "admin", name: "Quản trị viên" };
+  const u = (await getUsers(env))[user];
+  if (!u || u.disabled) return null;
+  const h = await pbkdf2(password, unb64(u.salt), u.iter || 100000);
+  return sameBytes(h, unb64(u.hash)) ? { user, role: u.role || "kq", name: u.name || user } : null;
+}
+
+// Ghi lịch sử: mỗi sự kiện 1 khóa "log:<thời điểm đảo>" để liệt kê mới nhất trước, không phải đọc-sửa-ghi.
+// metadata (≤1KB) chứa tóm tắt; value chứa chi tiết (danh sách file).
+async function addLog(env, who, act, info = {}, detail = null) {
+  if (!env.NHANSU || !who) return;
+  const at = new Date().toISOString();
+  const key = "log:" + (1e13 - Date.now()).toString(36).padStart(9, "0") + "-" + Math.random().toString(36).slice(2, 6);
+  const meta = { at, user: who.user, name: String(who.name || "").slice(0, 60), role: who.role, act,
+    n: info.n || 0, up: String(info.up || "").slice(0, 40), note: String(info.note || "").slice(0, 200) };
+  await env.NHANSU.put(key, JSON.stringify({ ...meta, ...(detail || {}) }), { metadata: meta });
+}
+
 function cookieOf(req, name) {
   const m = (req.headers.get("cookie") || "").match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
   return m ? m[1] : null;
 }
 
-async function sessionUser(req, env) {
+// Phiên đăng nhập hiện tại → {user, role, name} hoặc null.
+// Đổi tên quản trị / khóa / xóa tài khoản phụ → phiên cũ hết hiệu lực ngay.
+async function sessionInfo(req, env) {
   const t = cookieOf(req, COOKIE);
   if (!t || !env.NHANSU || !/^[A-Za-z0-9_-]{30,}$/.test(t)) return null;
   const s = await env.NHANSU.get("sess:" + t, "json");
   if (!s || s.exp <= Date.now()) return null;
-  const a = await getAccount(env); // đổi tên đăng nhập → phiên của tên cũ hết hiệu lực
-  return a && a.user === s.user ? s.user : null;
+  if (s.role && s.role !== "admin") {
+    const u = (await getUsers(env))[s.user];
+    return u && !u.disabled ? { user: s.user, role: u.role || "kq", name: u.name || s.user } : null;
+  }
+  const a = await getAccount(env);
+  return a && a.user === s.user ? { user: s.user, role: "admin", name: "Quản trị viên" } : null;
 }
+// Chỉ quản trị viên (tab Nhân sự, quản lý tài khoản…) → tên đăng nhập hoặc null
+async function sessionUser(req, env) {
+  const i = await sessionInfo(req, env);
+  return i && i.role === "admin" ? i.user : null;
+}
+const canKq = (i) => !!i && (i.role === "admin" || i.role === "kq");
+const newToken = () => b64(crypto.getRandomValues(new Uint8Array(32))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 // Chặn ghi từ trang web khác (CSRF): yêu cầu thay đổi phải đến từ chính web này.
 function sameOrigin(req, url) {
@@ -119,7 +166,8 @@ async function api(req, env, url) {
 
   // ---------- đăng nhập ----------
   if (p === "/api/auth/me" && m === "GET") {
-    return json({ user: await sessionUser(req, env), ready: !!env.NHANSU });
+    const i = await sessionInfo(req, env);
+    return json({ user: i ? i.user : null, role: i ? i.role : null, name: i ? i.name : null, ready: !!env.NHANSU });
   }
   if (p === "/api/auth/login" && m === "POST") {
     if (!env.NHANSU) return json(NEED_KV, 503);
@@ -128,13 +176,18 @@ async function api(req, env, url) {
     if (fails >= 10) return json({ error: "Sai quá nhiều lần. Thử lại sau 15 phút." }, 429);
     const { username, password } = await body();
     const user = String(username || "").trim().toLowerCase();
-    if (!(await checkPassword(env, user, String(password || "")))) {
+    const who = await verifyLogin(env, user, String(password || ""));
+    if (!who) {
       await env.NHANSU.put("fail:" + ip, String(fails + 1), { expirationTtl: 900 });
-      return json({ error: "Sai tên đăng nhập hoặc mật khẩu" }, 401);
+      return json({ error: "Sai tên đăng nhập hoặc mật khẩu (hoặc tài khoản đã bị khóa)" }, 401);
     }
-    const token = b64(crypto.getRandomValues(new Uint8Array(32))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    await env.NHANSU.put("sess:" + token, JSON.stringify({ user, exp: Date.now() + SESSION_TTL * 1000 }), { expirationTtl: SESSION_TTL });
-    return json({ user }, 200, {
+    const token = newToken();
+    await env.NHANSU.put("sess:" + token, JSON.stringify({ user, role: who.role, exp: Date.now() + SESSION_TTL * 1000 }), { expirationTtl: SESSION_TTL });
+    if (who.role !== "admin") {
+      const us = await getUsers(env);
+      if (us[user]) { us[user].lastLogin = new Date().toISOString(); await env.NHANSU.put("users", JSON.stringify(us)); }
+    }
+    return json(who, 200, {
       "set-cookie": `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL}`,
     });
   }
@@ -144,23 +197,105 @@ async function api(req, env, url) {
     return json({ ok: true }, 200, { "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` });
   }
   if (p === "/api/auth/password" && m === "POST") {
-    const user = await sessionUser(req, env);
-    if (!user) return json(NEED_LOGIN, 401);
+    const me = await sessionInfo(req, env);
+    if (!me) return json(NEED_LOGIN, 401);
     const { current: cur, next, username } = await body();
+    if (me.role !== "admin") { // tài khoản phụ: chỉ đổi mật khẩu của chính mình
+      if (!(await verifyLogin(env, me.user, String(cur || "")))) return json({ error: "Mật khẩu hiện tại không đúng" }, 400);
+      if (String(next || "").length < 8) return json({ error: "Mật khẩu mới cần ít nhất 8 ký tự" }, 400);
+      const us = await getUsers(env);
+      Object.assign(us[me.user], await hashPw(next));
+      await env.NHANSU.put("users", JSON.stringify(us));
+      return json({ ok: true, ...me });
+    }
+    const user = me.user;
     if (!(await checkPassword(env, user, String(cur || "")))) return json({ error: "Mật khẩu hiện tại không đúng" }, 400);
     const newUser = String(username || user).trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) return json({ error: "Tên đăng nhập 3–32 ký tự: chữ không dấu, số, . _ -" }, 400);
+    if (newUser !== user && (await getUsers(env))[newUser]) return json({ error: "Tên này đang là một tài khoản phụ" }, 400);
     if (String(next || "").length < 8) return json({ error: "Mật khẩu mới cần ít nhất 8 ký tự" }, 400);
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const hash = await pbkdf2(String(next), salt, 100000);
     await env.NHANSU.put("account", JSON.stringify({ user: newUser, salt: b64(salt), hash: b64(hash), iter: 100000 }));
-    if (newUser === user) return json({ ok: true, user });
+    if (newUser === user) return json({ ok: true, ...me });
     // đổi tên: cấp phiên mới cho tên mới (phiên tên cũ tự hết hiệu lực)
-    const token = b64(crypto.getRandomValues(new Uint8Array(32))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    await env.NHANSU.put("sess:" + token, JSON.stringify({ user: newUser, exp: Date.now() + SESSION_TTL * 1000 }), { expirationTtl: SESSION_TTL });
-    return json({ ok: true, user: newUser }, 200, {
+    const token = newToken();
+    await env.NHANSU.put("sess:" + token, JSON.stringify({ user: newUser, role: "admin", exp: Date.now() + SESSION_TTL * 1000 }), { expirationTtl: SESSION_TTL });
+    return json({ ok: true, user: newUser, role: "admin", name: "Quản trị viên" }, 200, {
       "set-cookie": `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL}`,
     });
+  }
+
+  // ---------- tài khoản phụ (chỉ quản trị viên) ----------
+  if (p.startsWith("/api/users")) {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    const me = await sessionInfo(req, env);
+    if (!me) return json(NEED_LOGIN, 401);
+    if (me.role !== "admin") return json({ error: "Chỉ quản trị viên được quản lý tài khoản" }, 403);
+    const us = await getUsers(env);
+    const pub = () => Object.keys(us).sort().map((k) => ({ username: k, name: us[k].name || "", role: us[k].role || "kq",
+      roleName: ROLES[us[k].role || "kq"], disabled: !!us[k].disabled, createdAt: us[k].createdAt || null, lastLogin: us[k].lastLogin || null }));
+    if (p === "/api/users" && m === "GET") return json({ users: pub(), roles: ROLES });
+    const b = await body();
+    const username = String(b.username || "").trim().toLowerCase();
+    const name = String(b.name ?? "").trim().slice(0, 60);
+    if (p === "/api/users" && m === "POST") {
+      if (!/^[a-z0-9._-]{3,32}$/.test(username)) return json({ error: "Tên đăng nhập 3–32 ký tự: chữ không dấu, số, . _ -" }, 400);
+      const a = await getAccount(env);
+      if (us[username] || (a && a.user === username)) return json({ error: "Tên đăng nhập đã tồn tại" }, 400);
+      if (String(b.password || "").length < 8) return json({ error: "Mật khẩu cần ít nhất 8 ký tự" }, 400);
+      if (Object.keys(us).length >= 50) return json({ error: "Tối đa 50 tài khoản" }, 400);
+      const role = ROLES[b.role] ? b.role : "kq";
+      us[username] = { name: name || username, role, ...(await hashPw(b.password)), createdAt: new Date().toISOString(), createdBy: me.user };
+      await env.NHANSU.put("users", JSON.stringify(us));
+      await addLog(env, me, "user.create", { note: username + (name ? " (" + name + ")" : "") });
+      return json({ ok: true, users: pub() });
+    }
+    if (!us[username]) return json({ error: "Không tìm thấy tài khoản" }, 404);
+    if (p === "/api/users/update" && m === "POST") {
+      const ch = [];
+      if (b.name !== undefined && name && name !== us[username].name) { us[username].name = name; ch.push("đổi tên hiển thị"); }
+      if (b.password) {
+        if (String(b.password).length < 8) return json({ error: "Mật khẩu cần ít nhất 8 ký tự" }, 400);
+        Object.assign(us[username], await hashPw(b.password)); ch.push("đặt lại mật khẩu");
+      }
+      if (b.disabled !== undefined && !!b.disabled !== !!us[username].disabled) { us[username].disabled = !!b.disabled; ch.push(b.disabled ? "khóa" : "mở khóa"); }
+      await env.NHANSU.put("users", JSON.stringify(us));
+      if (ch.length) await addLog(env, me, "user.update", { note: username + ": " + ch.join(", ") });
+      return json({ ok: true, users: pub() });
+    }
+    if (p === "/api/users/delete" && m === "POST") {
+      delete us[username];
+      await env.NHANSU.put("users", JSON.stringify(us));
+      await addLog(env, me, "user.delete", { note: username });
+      return json({ ok: true, users: pub() });
+    }
+    return json({ error: "Không tìm thấy" }, 404);
+  }
+
+  // ---------- lịch sử ----------
+  if (p === "/api/log" && m === "GET") {
+    if (!env.NHANSU) return json({ items: [] });
+    const me = await sessionInfo(req, env);
+    if (!me) return json(NEED_LOGIN, 401);
+    const items = [];
+    let cursor, pages = 0;
+    do {
+      const l = await env.NHANSU.list({ prefix: "log:", cursor, limit: 1000 });
+      l.keys.forEach((k) => { if (k.metadata && (me.role === "admin" || k.metadata.user === me.user)) items.push({ k: k.name, ...k.metadata }); });
+      cursor = l.list_complete ? null : l.cursor;
+    } while (cursor && ++pages < 3);
+    return json({ items, all: me.role === "admin" });
+  }
+  if (p === "/api/log/item" && m === "GET") {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    const me = await sessionInfo(req, env);
+    if (!me) return json(NEED_LOGIN, 401);
+    const k = url.searchParams.get("k") || "";
+    if (!/^log:[a-z0-9-]{8,30}$/.test(k)) return json({ error: "Không hợp lệ" }, 400);
+    const v = await env.NHANSU.get(k, "json");
+    if (!v || (me.role !== "admin" && v.user !== me.user)) return json({ error: "Không tìm thấy" }, 404);
+    return json(v);
   }
 
   // ---------- nhân sự ----------
@@ -170,7 +305,8 @@ async function api(req, env, url) {
   }
   if (p === "/api/nhansu" && m === "PUT") {
     if (!env.NHANSU) return json(NEED_KV, 503);
-    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    const me = await sessionInfo(req, env);
+    if (!me || me.role !== "admin") return json(NEED_LOGIN, 401);
     const b = await body();
     let rows;
     try { rows = cleanRows(b.rows); } catch (e) { return json({ error: e.message }, 400); }
@@ -180,11 +316,14 @@ async function api(req, env, url) {
     const doc = { rows, updatedAt: new Date().toISOString(), note: String(b.note || "").slice(0, 200) };
     if (cur.source === "web") await env.NHANSU.put("prev", JSON.stringify(cur)); // giữ 1 bản trước để cứu
     await env.NHANSU.put("current", JSON.stringify(doc));
+    await addLog(env, me, "nhansu.save", { n: rows.length, note: doc.note });
     return json({ ok: true, updatedAt: doc.updatedAt });
   }
   if (p === "/api/nhansu/restore" && m === "POST") {
     if (!env.NHANSU) return json(NEED_KV, 503);
-    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    const me = await sessionInfo(req, env);
+    if (!me || me.role !== "admin") return json(NEED_LOGIN, 401);
+    await addLog(env, me, "nhansu.restore");
     const cur = await env.NHANSU.get("current");
     if (cur) await env.NHANSU.put("prev", cur);
     await env.NHANSU.delete("current");
@@ -211,8 +350,9 @@ async function api(req, env, url) {
   }
   if (p === "/api/ketqua" && m === "PUT") {
     if (!env.NHANSU) return json(NEED_KV, 503);
-    const user = await sessionUser(req, env);
-    if (!user) return json(NEED_LOGIN, 401);
+    const me = await sessionInfo(req, env);
+    if (!canKq(me)) return json(NEED_LOGIN, 401);
+    const user = me.user;
     const text = await req.text();
     if (text.length > 1.5e6) return json({ error: "Gói dữ liệu quá lớn" }, 413);
     let b;
@@ -225,12 +365,14 @@ async function api(req, env, url) {
     const at = new Date().toISOString();
     const key = "kq:b:" + Date.now().toString(36).padStart(10, "0") + "-" + Math.random().toString(36).slice(2, 8);
     await env.NHANSU.put(key, JSON.stringify({ at, by: user, reports: reps }));
+    const files = ids.map((id) => String(reps[id].file || id).slice(0, 120));
+    await addLog(env, me, "kq.upload", { n: ids.length, up: b.up }, { files, batch: key });
     return json({ ok: true, key, n: ids.length, at });
   }
   // Đường dẫn tương đối của từng phiếu trong thư mục "Kết quả phân tích" (để mở file PDF trên OneDrive)
   if (p === "/api/ketqua/paths" && m === "PUT") {
     if (!env.NHANSU) return json(NEED_KV, 503);
-    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    if (!canKq(await sessionInfo(req, env))) return json(NEED_LOGIN, 401);
     const text = await req.text();
     if (text.length > 1.5e6) return json({ error: "Gói dữ liệu quá lớn" }, 413);
     let b; try { b = JSON.parse(text); } catch { return json({ error: "Dữ liệu không hợp lệ" }, 400); }
@@ -247,13 +389,15 @@ async function api(req, env, url) {
   }
   if (p === "/api/ketqua/reset" && m === "POST") {
     if (!env.NHANSU) return json(NEED_KV, 503);
-    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    const me = await sessionInfo(req, env);
+    if (!me || me.role !== "admin") return json(NEED_LOGIN, 401);
     let cursor, n = 0;
     do {
       const l = await env.NHANSU.list({ prefix: "kq:b:", cursor });
       for (const k of l.keys) { await env.NHANSU.delete(k.name); n++; }
       cursor = l.list_complete ? null : l.cursor;
     } while (cursor);
+    await addLog(env, me, "kq.reset", { n });
     return json({ ok: true, deleted: n });
   }
   return json({ error: "Không tìm thấy" }, 404);
