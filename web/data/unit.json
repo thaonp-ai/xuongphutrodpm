@@ -1,5 +1,5 @@
 {
-"updatedAt": "2026-11-25T14:39:13Z",
+"updatedAt": "2026-11-25T14:58:21Z",
 "source": "Phân loại Unit.xlsx",
 "items": [
 {
@@ -253,6 +253,538 @@
 {
 "unit": "Khác",
 "sample": "Process Condensate Từ TK-1002 Đến P- 1014A/B"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "40V1001"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Nước Raw chân đuốc Flare"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu ra Mixbed"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Stem - Condensate"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process- Condensate"
+},
+{
+"unit": "Nước sạch làm mát",
+"sample": "Fresh"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Steam Condensate"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Condensate uti"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Condensate -từ ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Out Demi"
+},
+{
+"unit": "HRSG",
+"sample": "HRSG"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "AUXY"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2 B"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2 A"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA1"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Bể Cân Bằng"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Condensate Ure"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Nước mặt chân đuốc Flare"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2B-Sinh hoạt"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2A-Sinh hoạt"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2 - ND"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Nước thải đuốc ngoài bãi cỏ"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40PK-2002-BA2A"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "NƯỚC KO DRUM"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Flare"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbine condensate"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Nước nhiễm Amo ở flare"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "TK-102"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "OUT Nhiễm dầu"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40PK 2002-BA1"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Đầu vào bể BA1, BA2"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Bể BA2"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Đầu vào bể BA2"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "River quay về"
+},
+{
+"unit": "Khác",
+"sample": "Dung dịch Urea tại Công đoạn Pha chế dịch Urea"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nhựa Cation Line C"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nhựa Anion Line C"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nhựa Cation Line B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nhựa Anion Line B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Tubin Condensate"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "Out Portable"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "In Portable"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "steam condensate X. Urea"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước xả thải từ xưởng ure"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước xả thải từ xưởng amo"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "V1 Nhiễm dầu"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "Đầu ra sau lọc"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "Out - Protable"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "30-TK2002"
+},
+{
+"unit": "Hóa chất",
+"sample": "NaOCl tại bồn xe"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Demi vào 10E8001"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "Condensate Bơm 10P8003"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Demi vào 10V8001"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Demi ra 10E8001"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đường nước Demi từ 30-E-8001 (1804-1/1-B1-26"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đường nước Demi từ 30-E-3005 ( AP-8503)"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "Đường Steam Condensite từ 10-P- 8003A/B (1805-1/2-B1-18/19)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Steam Condensate (X.Urea)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Proced Condensate (X.Urea)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "In Mixbed"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process Condensate (X.Ammo)"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu Diesel"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "IN 40-PK-2003"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "OUT 40-PK-2001"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "IN 40-PK-2001"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "condensate X. Amo"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process Condensate Urea"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process Condensate Amonia"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "In Nhiễm Dầu"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "ST 1 Nhiễm Dầu"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Demi đầu hút 30P1002B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Demi điểm D3"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Demi điểm D1"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "condensat từ X. Urea"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải SH vào TK100"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbine condensat"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Steam condensat"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu Gas Turbine"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Hố gom 40PK-3001"
+},
+{
+"unit": "Hóa chất",
+"sample": "Hóa chất Na2SO3"
+},
+{
+"unit": "Hóa chất",
+"sample": "NaOH nhập"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process condensat từ X. Urea"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu diezel máy phát điện tiết bị 10GT9001/P4"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Sau Injector TK4"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Sau Injector TK10 (4.0%)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Sau Injector TK10 (1.6%)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Steam condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Tubine condensat"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Hạt nhựa Anion Ambelite IRA 402Cl"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Hạt nhựa Cation Ambelite IRC 120NA"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải từ bể lắng bùn"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu Turbine"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Mẫu nước nhiễm NH3 (Bồn 2)"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Mẫu nước nhiễm NH3 (Bồn 1)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Deion"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Stem condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbine condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Steam process Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbin condensat Amo"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbin condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Steam condensat Ure"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40PK 2002-BA2B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Process condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Steam condensat X.Uti"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu 10GT9001"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "10-AP-8503"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Hố gom TK2002"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "10-AP-8204"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "10-AP-8501"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA1 Sinh hoạt"
+},
+{
+"unit": "HRSG",
+"sample": "10-AP-9201"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbine condensate Amo"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Turbine condensate Uti"
+},
+{
+"unit": "Khác",
+"sample": "E22-Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "In deion"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước condensate Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước condensat từ Amo"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Out condensate"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "In Condensate"
+},
+{
+"unit": "Nước sạch làm mát",
+"sample": "Nước rửa tấm TĐN"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước condensat Ure"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Condensat X.Amo"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước Condensat X.Phụ trợ"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu tại TB 10-GT-9001"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu hút bơm 30-P-1001A"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu Diezel mới"
+},
+{
+"unit": "10-GT-9001",
+"sample": "Dầu Diezel tăng tốc lần 2"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA1-ND"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40-PK-2002/BA2-B"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40-PK-2002/BA2-A"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40-PK-2002/BA1"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "40-PK-2001/BA1"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2.A"
 }
 ]
 }
