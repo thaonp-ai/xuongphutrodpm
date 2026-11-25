@@ -110,6 +110,9 @@ body:not(.is-admin) .adm{display:none!important}
 .odlg .ft{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
 .odlg tr.hl td{background:var(--crit-soft)}
 .odlg .over{color:var(--crit);font-weight:600;white-space:nowrap}
+.cust{display:inline-flex;align-items:center;gap:4px}
+.cust input{width:132px}
+select#fMonth.on,.cust.on input{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;z-index:90;opacity:0;transition:opacity .25s;pointer-events:none}.toast.show{opacity:1}
 .foot{color:var(--muted);font-size:12px;margin-top:24px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -143,8 +146,10 @@ body:not(.is-admin) .adm{display:none!important}
     <button data-tab="data">Dữ liệu</button>
     <div class="filters">
       <div class="seg" id="range">
-        <button data-d="7">7 ngày</button><button data-d="30" class="on">30 ngày</button><button data-d="90">90 ngày</button><button data-d="ytd">Năm nay</button><button data-d="all">Tất cả</button>
+        <button data-d="today">Hôm nay</button><button data-d="yday">Hôm qua</button><button data-d="7">7 ngày</button><button data-d="30" class="on">30 ngày</button><button data-d="90">90 ngày</button><button data-d="ytd">Năm nay</button><button data-d="all">Tất cả</button>
       </div>
+      <select id="fMonth" title="Xem theo tháng"><option value="">📅 Theo tháng…</option></select>
+      <span class="cust" title="Chọn khoảng ngày tùy ý"><input type="date" id="fFrom" aria-label="Từ ngày"><span class="sub">–</span><input type="date" id="fTo" aria-label="Đến ngày"></span>
       <select id="fType"><option value="">Tất cả tần suất</option><option value="DK">Định kỳ</option><option value="YC">Yêu cầu</option></select>
       <select id="fKip"><option value="">Tất cả kíp</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
     </div>
@@ -299,6 +304,7 @@ function rebuild(){
   S.known = {}; reports.forEach(function(r){ S.known[r.id] = r; });
   $('#srcInfo').textContent = reports.length ? (reports.length.toLocaleString('vi-VN') + ' phiếu · ' + recs.length.toLocaleString('vi-VN') + ' kết quả · ' + S.samples.length + ' điểm mẫu') : 'Chưa có dữ liệu';
   $('#banner').classList.toggle('hide', !!reports.length || S.busy);
+  fillMonths();
   render();
 }
 var rbT; function rebuildSoon(){ clearTimeout(rbT); rbT = setTimeout(rebuild, 120); }
@@ -370,21 +376,51 @@ async function upload(files){
 }
 
 /* ---------------- bộ lọc ---------------- */
-function rangeStart(){
-  var maxTs = S.recs.length ? S.recs[S.recs.length-1].ts : Date.now();
-  var end = Math.max(maxTs, Date.now());
-  if (S.range==='all') return -Infinity;
-  if (S.range==='ytd') return new Date(new Date(end).getFullYear(),0,1).getTime();
-  var d = new Date(end); d.setHours(0,0,0,0); return d.getTime() - (+S.range-1)*86400000;
+var DAY=86400000;
+function dayStart(t){ var d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); }
+function ymd(t){ var d=new Date(t); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+// Khoảng thời gian đang xem: [t0, t1)
+function rangeBounds(){
+  var r=S.range||'30', today=dayStart(Date.now()), endToday=today+DAY;
+  var maxTs = S.recs.length ? S.recs[S.recs.length-1].ts : 0;
+  var endAll = Math.max(endToday, maxTs+1);
+  if (r==='all') return {t0:-Infinity, t1:Infinity};
+  if (r==='today') return {t0:today, t1:endToday};
+  if (r==='yday') return {t0:today-DAY, t1:today};
+  if (r==='ytd') return {t0:new Date(new Date(today).getFullYear(),0,1).getTime(), t1:endAll};
+  var m=/^m:(\d{4})-(\d{2})$/.exec(r);
+  if (m) return {t0:new Date(+m[1],+m[2]-1,1).getTime(), t1:new Date(+m[1],+m[2],1).getTime()};
+  m=/^c:([\d-]*):([\d-]*)$/.exec(r);
+  if (m){ var a=m[1]?new Date(m[1]+'T00:00:00').getTime():-Infinity, b=m[2]?new Date(m[2]+'T00:00:00').getTime()+DAY:Infinity; return {t0:a, t1:b}; }
+  var n=+r||30; return {t0:today-(n-1)*DAY, t1:endAll};
 }
+function rangeStart(){ return rangeBounds().t0; }
+function rangeEnd(){ return rangeBounds().t1; }
 function filtered(){
-  var t0 = rangeStart();
-  return S.recs.filter(function(r){ return r.ts>=t0 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
+  var b = rangeBounds();
+  return S.recs.filter(function(r){ return r.ts>=b.t0 && r.ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
 }
 function filteredReports(){
-  var t0 = rangeStart();
-  return S.reports.filter(function(r){ var ts=new Date(r.date+'T12:00:00').getTime(); return ts>=t0 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
+  var b = rangeBounds();
+  return S.reports.filter(function(r){ var ts=new Date(r.date+'T12:00:00').getTime(); return ts>=b.t0 && ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
 }
+function fillMonths(){
+  var sel=$('#fMonth'), seen={}, ms=[];
+  S.reports.forEach(function(r){ var k=(r.date||'').slice(0,7); if(k && !seen[k]){ seen[k]=1; ms.push(k); } });
+  ms.sort().reverse();
+  sel.innerHTML='<option value="">📅 Theo tháng…</option>'+ms.map(function(k){ return '<option value="'+k+'">Tháng '+(+k.slice(5))+'/'+k.slice(0,4)+'</option>'; }).join('');
+  syncRangeUI();
+}
+function syncRangeUI(){
+  var r=S.range||'30';
+  $$('#range button').forEach(function(x){ x.classList.toggle('on', x.dataset.d===r); });
+  var m=/^m:(.+)$/.exec(r), sel=$('#fMonth');
+  sel.value = m ? m[1] : ''; sel.classList.toggle('on', !!m);
+  var c=/^c:([\d-]*):([\d-]*)$/.exec(r);
+  $('#fFrom').value = c ? c[1] : ''; $('#fTo').value = c ? c[2] : '';
+  $('.cust').classList.toggle('on', !!c);
+}
+function setRange(v){ S.range=v; try{ localStorage.setItem('kqpt-range', v); }catch(_){} syncRangeUI(); render(); }
 
 /* ---------------- định dạng ---------------- */
 function fmtDate(d){ var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
@@ -568,7 +604,7 @@ function renderSample(){
     var arr=byC[c], sp=(arr.filter(function(r){return r.spec;}).pop()||{}).spec, last=arr[arr.length-1];
     var unit=(arr.filter(function(r){return r.unit;}).pop()||{}).unit||'', nOut=arr.filter(function(r){return r.status==='out';}).length;
     var series=[{name:c,color:'var(--s1)',pts:arr.map(function(r){ return Object.assign({},r,{v:r.flag==='KPH'?0:r.v}); })}];
-    var opt={min:sp&&sp.min, max:sp&&sp.max, t0:isFinite(t0)?t0:null, t1:Math.max(Date.now(), last.ts), label:c};
+    var t1r=rangeEnd(); var opt={min:sp&&sp.min, max:sp&&sp.max, t0:isFinite(t0)?t0:null, t1:isFinite(t1r)?Math.min(t1r, Math.max(Date.now(), last.ts)):Math.max(Date.now(), last.ts), label:c};
     ZOOM.list.push({title:c+' · '+s.label, meta:[esc(s.point), esc(unit), last.specRaw?'mong muốn '+esc(last.specRaw):'', arr.length+' lần đo', nOut?'<span class="st out">▲ '+nOut+' vượt</span>':'', 'mới nhất <b>'+esc(last.raw)+'</b> lúc '+fmtTs(last.ts)].filter(Boolean).join(' · '), series:series, opt:opt});
     lineChart($('#sCharts [data-c="'+i+'"]'), series, opt);
   });
@@ -678,8 +714,11 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !$('#od
 $('#oChart').onclick=function(){ closeOut(); if(OUT_SK) goSample(OUT_SK); };
 $('#sCharts').addEventListener('click', function(e){ var o=e.target.closest('[data-oc]'); if(o && S.sel) showOut(S.sel, o.dataset.oc); });
 function goSample(sk){ S.sel=sk; $$('nav [data-tab]').forEach(function(x){x.classList.toggle('on',x.dataset.tab==='sample');}); S.tab='sample'; render(); window.scrollTo(0,0); }
-$$('#range button').forEach(function(x){ x.classList.toggle('on', x.dataset.d===S.range); });
-$('#range').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; $$('#range button').forEach(function(x){x.classList.toggle('on',x===b);}); S.range=b.dataset.d; try{localStorage.setItem('kqpt-range',S.range);}catch(_){} render(); };
+syncRangeUI();
+$('#range').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; setRange(b.dataset.d); };
+$('#fMonth').onchange=function(){ if(this.value) setRange('m:'+this.value); else setRange('30'); };
+function onCustom(){ var a=$('#fFrom').value, b=$('#fTo').value; if(!a && !b){ setRange('30'); return; } if(a && b && a>b){ var t=a; a=b; b=t; } setRange('c:'+a+':'+b); }
+$('#fFrom').onchange=onCustom; $('#fTo').onchange=onCustom;
 $('#fType').onchange=function(){ S.type=this.value; render(); };
 $('#fKip').onchange=function(){ S.kip=this.value; render(); };
 $('#sampleCards').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(!c) return; var ch=e.target.closest('.chip.out'); if(ch){ showOut(c.dataset.sk, ch.dataset.comp); return; } if(e.target.closest('.badge')){ showOut(c.dataset.sk, null); return; } goSample(c.dataset.sk); };
