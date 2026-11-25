@@ -448,6 +448,18 @@ async function upload(files){
   }
   try {
     await Promise.all([worker(), worker(), worker()]);
+    // Phiếu trùng nội dung nhưng khác tên file (vd bản sao “… (1).pdf”, “… - Copy.pdf”, file đổi tên)
+    // → bỏ qua để không tính 2 lần. Cùng tên file thì nạp lại = ghi đè bản cũ (không tăng số phiếu).
+    var sigOf = function(p){ return JSON.stringify([p.date, p.kip, p.type, p.rows]); }, sigs = {}, dups = [];
+    var have = (S.chunks && S.chunks.all && S.chunks.all.reports) || {};
+    Object.keys(have).forEach(function(id){ var p = have[id]; if (p && p.rows && p.rows.length) sigs[sigOf(p)] = id; });
+    Object.keys(parsed).sort(function(a,b){ return parsed[a].file.length - parsed[b].file.length || (parsed[a].file < parsed[b].file ? -1 : 1); }).forEach(function(id){
+      var p = parsed[id]; if (!p.rows || !p.rows.length) return;
+      var g = sigOf(p), o = sigs[g];
+      if (o && o !== id){ dups.push(p.file + ' = ' + ((have[o] || parsed[o] || {}).file || o)); delete parsed[id]; }
+      else sigs[g] = id;
+    });
+    if (dups.length) console.info('Phiếu trùng nội dung, bỏ qua:', dups);
     var ids = Object.keys(parsed), batch = {}, size = 0, sent = 0, packs = [], up = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     ids.forEach(function(id, j){ batch[id] = parsed[id]; size += JSON.stringify(parsed[id]).length;
       if (size > 300000 || Object.keys(batch).length >= 100 || j === ids.length-1){ packs.push(batch); batch = {}; size = 0; } });
@@ -461,8 +473,9 @@ async function upload(files){
       if (S.chunks && S.chunks.all){ Object.assign(S.chunks.all.reports, packs[k]); S.meta = {at:S.localAt, added:sent}; showMeta(); rebuildSoon(); }
     }
     S.busy = false; hideProgress();
-    setStatus('live', 'Đã nạp ' + sent + ' phiếu' + (errors ? ' · ' + errors + ' phiếu không đọc được' : ''));
-    toast('Đã nạp ' + sent + ' phiếu');
+    var dupTxt = dups.length ? ' · bỏ qua ' + dups.length + ' phiếu trùng nội dung với phiếu đã có' : '';
+    setStatus('live', 'Đã nạp ' + sent + ' phiếu' + (errors ? ' · ' + errors + ' phiếu không đọc được' : '') + dupTxt);
+    toast('Đã nạp ' + sent + ' phiếu' + dupTxt + (dups.length ? ' (vd: ' + dups[0] + ')' : ''));
     await connect();
   } catch(e){
     S.busy = false; hideProgress(); console.error(e);
