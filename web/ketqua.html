@@ -176,8 +176,11 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
     <div class="grow"></div>
     <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusTxt">Đang kết nối…</span></span>
     <button class="btn adm" id="btnHist" title="Xem lịch sử các lần nạp phiếu">📜 Lịch sử nạp</button>
-    <label class="btn primary adm" id="btnUpload" title="Chọn thư mục “Kết quả phân tích” để nạp các phiếu mới (cần đăng nhập)">⬆ Nạp phiếu mới
+    <label class="btn adm" id="btnUploadDir" title="Chọn cả thư mục (vd “Kết quả phân tích” hoặc “THANG 11”) – trang tự bỏ qua phiếu đã nạp">📁 Nạp cả thư mục
       <input type="file" id="dirInput" webkitdirectory multiple style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+    </label>
+    <label class="btn primary adm" id="btnUpload" title="Chọn một hoặc nhiều file PDF phiếu kết quả (giữ Ctrl để chọn nhiều file)">⬆ Nạp phiếu (chọn file)
+      <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     </label>
   </div>
   <nav>
@@ -201,7 +204,7 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
   <div class="banner hide" id="banner">
     <div style="flex:1;min-width:260px">
       <b id="bannerTitle">Chưa có dữ liệu</b>
-      <div class="sub" id="bannerText">Quản trị viên hoặc tài khoản được cấp quyền đăng nhập (nút 🔒 Đăng nhập ở góc trên bên phải), bấm <b>⬆ Nạp phiếu mới</b> và chọn thư mục “Kết quả phân tích” (OneDrive › App Xuong Phu tro › Xuong Phu tro). Trang đọc các phiếu PDF ngay trên máy và lưu kết quả để mọi người mở web đều xem được.</div>
+      <div class="sub" id="bannerText">Quản trị viên hoặc tài khoản được cấp quyền đăng nhập (nút 🔒 Đăng nhập ở góc trên bên phải), bấm <b>⬆ Nạp phiếu (chọn file)</b> để chọn từng file PDF, hoặc <b>📁 Nạp cả thư mục</b> và chọn thư mục “Kết quả phân tích” (OneDrive › App Xuong Phu tro › Xuong Phu tro). Trang đọc các phiếu PDF ngay trên máy và lưu kết quả để mọi người mở web đều xem được.</div>
       <div class="progress hide" id="prog"><i></i></div>
     </div>
     
@@ -380,13 +383,27 @@ function setAdmin(v, role){ v = !!v && (!role || role==='admin' || role==='kq');
 window.addEventListener('message', function(e){ if (e.origin===location.origin && e.data && e.data.type==='xpt-auth') setAdmin(!!e.data.user, e.data.role); });
 
 /* ---------------- nạp phiếu từ thư mục ---------------- */
+// Đường dẫn của phiếu trong thư mục “Kết quả phân tích” trên OneDrive (dạng "2026/THANG 11/tên.pdf"):
+// - chọn thư mục: lấy từ đoạn năm (2026/…) trong đường dẫn; chọn thư mục THANG n → ghép năm theo tên file
+// - chọn từng file: giữ đường dẫn đã biết, chưa có thì suy từ ngày trong tên file (vd Uti-9.11.26-… → 2026/THANG 11)
+function pathFor(f, known){
+  var rp = f.webkitRelativePath || '', segs = rp ? rp.split('/') : [];
+  var i = segs.findIndex(function(x){ return /^20\d\d$/.test(x); });
+  if (i >= 0) return segs.slice(i).join('/');
+  var m = f.name.match(/(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})(?!\d)/), y = m ? (m[3].length===2 ? '20'+m[3] : m[3]) : '';
+  var j = segs.findIndex(function(x){ return /^THANG\s*\d{1,2}$/i.test(x); });
+  if (j >= 0 && y) return y + '/' + segs.slice(j).join('/');
+  if (known) return known;
+  if (m && +m[2] >= 1 && +m[2] <= 12) return y + '/THANG ' + (+m[2]) + '/' + f.name;
+  return segs.length > 1 ? segs.slice(1).join('/') : '';
+}
 async function upload(files){
   if (!document.body.classList.contains('is-admin')){ toast('Cần đăng nhập (quản trị viên hoặc tài khoản được cấp quyền nạp phiếu)'); return; }
   var list = files.filter(function(f){ return KQPT.isReportName(f.name); });
   var todo = list.filter(function(f){ var k = S.known[KQPT.docId(f.name)]; return !k || k.m !== f.lastModified || k.s !== f.size || k.v !== PARSER_VERSION; });
   // ghi đường dẫn từng phiếu (bỏ tên thư mục gốc đã chọn) để bấm tên phiếu mở được file trên OneDrive
   var np = {}, nNew = 0;
-  list.forEach(function(f){ var rp=(f.webkitRelativePath||f.name).split('/').slice(1).join('/')||f.name; var id=KQPT.docId(f.name); if (S.paths[id]!==rp){ np[id]=rp; nNew++; } });
+  list.forEach(function(f){ var id=KQPT.docId(f.name), rp=pathFor(f, S.paths[id]); if (rp && S.paths[id]!==rp){ np[id]=rp; nNew++; } });
   if (nNew){
     try {
       var ids=Object.keys(np);
@@ -780,7 +797,7 @@ function fileCell(file){
 }
 document.addEventListener('click', function(e){
   var a=e.target.closest('.pdfa.off'); if(!a) return;
-  toast(!S.pdfBase ? 'Chưa cấu hình đường dẫn OneDrive cho phiếu PDF' : 'Chưa có đường dẫn của phiếu này — quản trị viên bấm ⬆ Nạp phiếu mới một lần để cập nhật');
+  toast(!S.pdfBase ? 'Chưa cấu hình đường dẫn OneDrive cho phiếu PDF' : 'Chưa có đường dẫn của phiếu này — nạp lại phiếu này (⬆ Nạp phiếu) để cập nhật');
 });
 /* ---------------- chi tiết các lần vượt ---------------- */
 var OUT_SK=null;
@@ -829,6 +846,10 @@ $('#sSearch').oninput=function(){ renderSample(); };
 $('#dSearch').oninput=function(){ clearTimeout(this._t); this._t=setTimeout(renderData,200); };
 $('#dOut').onchange=renderData; $('#dCsv').onclick=exportCsv;
 $('#dirInput').addEventListener('change', function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value=''; upload(f); });
+$('#fileInput').addEventListener('change', function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value='';
+  var bad = f.filter(function(x){ return !KQPT.isReportName(x.name); });
+  if (bad.length) toast(bad.length + ' file không đúng mẫu tên phiếu nên bị bỏ qua (vd: ' + bad[0].name + ')');
+  upload(f); });
 var rz; window.addEventListener('resize', function(){ clearTimeout(rz); rz=setTimeout(function(){ render(); if(ZOOM.i>=0) drawZoom(); },150); });
 render();
 loadUnits().then(connect);
