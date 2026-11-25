@@ -688,6 +688,8 @@ var ZOOM = {list:[], i:-1};
 function openZoom(i){
   if (!ZOOM.list[i]) return; ZOOM.i=i; var z=ZOOM.list[i], el=$('#zoom');
   el.classList.remove('hide'); document.body.style.overflow='hidden';
+  // ô kết quả khi rê chuột và bảng chi tiết phải nằm TRONG khung phóng to để hiện được ở chế độ toàn màn hình
+  el.appendChild($('#tip')); el.appendChild($('#odlg'));
   $('#zTitle').textContent=z.title; $('#zMeta').innerHTML=z.meta;
   $('#zPrev').disabled = i<=0; $('#zNext').disabled = i>=ZOOM.list.length-1;
   $('#zPrev').classList.toggle('hide', ZOOM.list.length<2); $('#zNext').classList.toggle('hide', ZOOM.list.length<2);
@@ -700,6 +702,7 @@ function drawZoom(){
   if (z.kind==='bar') barChart(box, z.data, h); else lineChart(box, z.series, Object.assign({}, z.opt, {h:h}));
 }
 function closeZoom(){
+  document.body.appendChild($('#tip')); document.body.appendChild($('#odlg'));
   $('#zoom').classList.add('hide'); document.body.style.overflow=''; ZOOM.i=-1; hideTip();
   if (document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} } ZOOM.fs=false;
 }
@@ -707,7 +710,7 @@ document.addEventListener('fullscreenchange', function(){ if(!document.fullscree
 $('#zClose').onclick=closeZoom;
 $('#zPrev').onclick=function(){ openZoom(ZOOM.i-1); };
 $('#zNext').onclick=function(){ openZoom(ZOOM.i+1); };
-document.addEventListener('keydown', function(e){ if(ZOOM.i<0) return; if(e.key==='Escape') closeZoom(); else if(e.key==='ArrowLeft') openZoom(ZOOM.i-1); else if(e.key==='ArrowRight') openZoom(ZOOM.i+1); });
+document.addEventListener('keydown', function(e){ if(ZOOM.i<0) return; if(!$('#odlg').classList.contains('hide')) return; if(e.key==='Escape') closeZoom(); else if(e.key==='ArrowLeft') openZoom(ZOOM.i-1); else if(e.key==='ArrowRight') openZoom(ZOOM.i+1); });
 $('#sCharts').addEventListener('click', function(e){ var b=e.target.closest('.zbtn'); if(b) openZoom(+b.dataset.z); });
 $('#dailyZoom').onclick=function(){ ZOOM.list=[ZOOM.daily]; openZoom(0); };
 /* ---------------- sự kiện ---------------- */
