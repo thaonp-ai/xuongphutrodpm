@@ -1,0 +1,258 @@
+{
+"updatedAt": "2026-11-25T14:39:13Z",
+"source": "Phân loại Unit.xlsx",
+"items": [
+{
+"unit": "HRSG",
+"sample": "Hơi cao áp ra khỏi 10-B-9001"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Xử lý nước thải tại 20-TK-2601"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "Hơi cao áp ra khỏi 10-B-8001"
+},
+{
+"unit": "HRSG",
+"sample": "Nước xả blowdown HRSG"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước ra khỏi hệ thống đầu Ra Bể TK 105"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "Nước xả blowdown nồi hơi phụ trợ"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Đầu Ra Bể TK 104"
+},
+{
+"unit": "Nước cấp lò hơi và lò hơi phụ trợ - Khí nhiên liệu",
+"sample": "Nước cấp nồi hơi vào 10-P-8002 A/B"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải đầu Vào Bể TK 102"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu ra Mixed bed Line B"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước Thải nhiễm dầu Đầu Ra 40-PK-2001"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu ra Mixed bed Line A"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Vào Mixed bed Line A"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu vào tháp trao đổi Cation B"
+},
+{
+"unit": "Nước sạch làm mát",
+"sample": "Nước sạch Làm Mát Từ 30-P-3002A-D (Nước Làm Mát Tuần Hoàn Kín Tại đường phân phối chính)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Ra tháp trao đổi Anion B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Ra tháp trao đổi Anion A"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Nước khử khoáng tại đầu ra bơm 30-P- 1002A/B"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "NƯỚC SÔNG BỔ SUNG (nước sông make-up)"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "NƯỚC SÔNG TUẦN HOÀN"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu ra Mixed bed Line C"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Process Condensate từ T-1002 đến BL"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Vào Mixed bed Line B"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu vào tháp trao đổi Cation A"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải Xưởng Phụ Trợ -Vị trí số 4"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải nhiễm dầu từ Xưởng Ure-Vị Trí 3"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải nhiễm Xưởng Amonia -Vị trí 2"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải nhiễm dầu đầu vào cụm XLNT nhiễm dầu - Vị trí số 1"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải Ra KCN (Bể 40-PK-2002/BA8)"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "30-BA-3004 Outlet"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "30-BA-3004 Inlet"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "SSF Outlet"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "SSF Inlet"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "MUF Outlet"
+},
+{
+"unit": "Nước sông làm mát",
+"sample": "MUF Inlet"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước thải nhà máy CO2 (Lấy tại xưởng Uti của nhà máy Đạm)"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "Nước cấp từ Khu công nghiệp vào bồn 30-TK- 2001 (Nước cấp từ hàng rào nhà máy)"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Ra tháp trao đổi Anion C"
+},
+{
+"unit": "Bồn chứa Amoniac - Flare",
+"sample": "Sản phẩm NH3 ở đầu hút của các bơm 40P5001/2/3"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu Vào Mixed bed Line C"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Đầu vào tháp trao đổi Cation C"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Nước Thải nhiễm dầu Đầu Vào 40-PK-2001"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA1 nhiễm dầu"
+},
+{
+"unit": "Nước thô, nước sinh hoạt & cứu hỏa",
+"sample": "Nước dịch vụ cấp vào bồn 30-TK-2002 bồn (Nước sinh hoạt chứa nước sinh hoạt)"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "Mẫu FA bơm về xưởng phụ trợ"
+},
+{
+"unit": "Nước khử khoáng (Demi)",
+"sample": "Bồn Deion"
+},
+{
+"unit": "Xử lý nước thải",
+"sample": "BA2 nhiễm dầu"
+},
+{
+"unit": "Khác",
+"sample": "Dịch trên các đĩa hấp thụ 20-T-2201"
+},
+{
+"unit": "Khác",
+"sample": "CO2 từ Cấp 3 của máy nén"
+},
+{
+"unit": "Khác",
+"sample": "Mẫu nước trong 20-V- 1010"
+},
+{
+"unit": "Khác",
+"sample": "CO2 to Urea"
+},
+{
+"unit": "Khác",
+"sample": "Carbamat từ V 1001 đến J - 1001"
+},
+{
+"unit": "Khác",
+"sample": "Mẫu nước trong E 1005B"
+},
+{
+"unit": "Khác",
+"sample": "Mẫu nước trong E 1005A"
+},
+{
+"unit": "Khác",
+"sample": "UFC85 Sản phẩm ra khỏi thiết bị trao đổi nhiệt 20-E-2204"
+},
+{
+"unit": "Khác",
+"sample": "Dịch Urea-carbamat đáy E-1001"
+},
+{
+"unit": "Khác",
+"sample": "Mẫu hơi E 1005B"
+},
+{
+"unit": "Khác",
+"sample": "Khí trơ từ đỉnh T-1003"
+},
+{
+"unit": "Khác",
+"sample": "Dịch Urea-carbamat ra khỏi R1001"
+},
+{
+"unit": "Khác",
+"sample": "Nước làm mát đầu ra cụm cooling UFC85 tại Cửa ra 20P2701A/B"
+},
+{
+"unit": "Khác",
+"sample": "Mẫu hơi E 1005A"
+},
+{
+"unit": "Khác",
+"sample": "Dịch ure từ P-1008A/B đến tháp tạo hạt"
+},
+{
+"unit": "Khác",
+"sample": "Process Condensate Từ TK-1002 Đến P- 1014A/B"
+}
+]
+}

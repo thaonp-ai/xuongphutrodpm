@@ -112,7 +112,7 @@ body:not(.is-admin) .adm{display:none!important}
 .odlg .over{color:var(--crit);font-weight:600;white-space:nowrap}
 .cust{display:inline-flex;align-items:center;gap:4px}
 .cust input{width:132px}
-select#fMonth.on,.cust.on input{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+select#fUnit.on,select#fMonth.on,.cust.on input{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 15px;border-radius:9px;font-size:13px;z-index:90;opacity:0;transition:opacity .25s;pointer-events:none}.toast.show{opacity:1}
 .foot{color:var(--muted);font-size:12px;margin-top:24px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -150,6 +150,7 @@ select#fMonth.on,.cust.on input{border-color:var(--accent);background:var(--acce
       </div>
       <select id="fMonth" title="Xem theo tháng"><option value="">📅 Theo tháng…</option></select>
       <span class="cust" title="Chọn khoảng ngày tùy ý"><input type="date" id="fFrom" aria-label="Từ ngày"><span class="sub">–</span><input type="date" id="fTo" aria-label="Đến ngày"></span>
+      <select id="fUnit" title="Lọc theo unit (file Phân loại Unit.xlsx)"><option value="">Tất cả unit</option></select>
       <select id="fType"><option value="">Tất cả tần suất</option><option value="DK">Định kỳ</option><option value="YC">Yêu cầu</option></select>
       <select id="fKip"><option value="">Tất cả kíp</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
     </div>
@@ -227,7 +228,7 @@ var $ = function(s){ return document.querySelector(s); };
 var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
 var PARSER_VERSION = 9;
-var S = { reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
+var S = { unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
 try { var rg = localStorage.getItem('kqpt-range'); if (rg) S.range = rg; } catch(e){}
 
 /* ---------------- pdf.js (file đi kèm trang) ---------------- */
@@ -298,13 +299,14 @@ function rebuild(){
   recs.forEach(function(r){ if (al[r.sk]) r.sk = al[r.sk]; });
   S.samples = Object.keys(sMap).map(function(k){ var s=sMap[k]; s.name=top(s.names); s.point=top(s.points); s.label=s.name||s.point; return s; })
     .sort(function(a,b){ return a.label.localeCompare(b.label,'vi'); });
-  S.sIdx = {}; S.samples.forEach(function(s,i){ s.idx=i; S.sIdx[s.key]=s; });
+  S.sIdx = {}; S.samples.forEach(function(s,i){ s.idx=i; S.sIdx[s.key]=s; s.unit = unitOf(s); });
   recs.sort(function(a,b){ return a.ts-b.ts; });
   S.recs = recs; S.reports = reports;
   S.known = {}; reports.forEach(function(r){ S.known[r.id] = r; });
   $('#srcInfo').textContent = reports.length ? (reports.length.toLocaleString('vi-VN') + ' phiếu · ' + recs.length.toLocaleString('vi-VN') + ' kết quả · ' + S.samples.length + ' điểm mẫu') : 'Chưa có dữ liệu';
   $('#banner').classList.toggle('hide', !!reports.length || S.busy);
   fillMonths();
+  fillUnits();
   render();
 }
 var rbT; function rebuildSoon(){ clearTimeout(rbT); rbT = setTimeout(rebuild, 120); }
@@ -398,11 +400,38 @@ function rangeStart(){ return rangeBounds().t0; }
 function rangeEnd(){ return rangeBounds().t1; }
 function filtered(){
   var b = rangeBounds();
-  return S.recs.filter(function(r){ return r.ts>=b.t0 && r.ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
+  return S.recs.filter(function(r){ return r.ts>=b.t0 && r.ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip) && (!S.unit||(S.sIdx[r.sk]&&S.sIdx[r.sk].unit===S.unit)); });
 }
 function filteredReports(){
   var b = rangeBounds();
-  return S.reports.filter(function(r){ var ts=new Date(r.date+'T12:00:00').getTime(); return ts>=b.t0 && ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip); });
+  var inUnit=null;
+  if (S.unit){ inUnit={}; S.recs.forEach(function(r){ if(S.sIdx[r.sk]&&S.sIdx[r.sk].unit===S.unit) inUnit[r.file]=1; }); }
+  return S.reports.filter(function(r){ var ts=new Date(r.date+'T12:00:00').getTime(); return ts>=b.t0 && ts<b.t1 && (!S.type||r.type===S.type) && (!S.kip||r.kip===S.kip) && (!inUnit||inUnit[r.file]); });
+}
+/* ---------------- unit (web/data/unit.json, từ file Phân loại Unit.xlsx) ---------------- */
+var NO_UNIT='Chưa phân loại';
+function ukey(t){ return KQPT.fold(String(t||'')).replace(/[^a-z0-9]+/g,''); }
+async function loadUnits(){
+  try { var r=await fetch('data/unit.json',{cache:'no-store'}); if(!r.ok) return; var j=await r.json();
+    S.unitMap={}; S.unitOrder=[];
+    (j.items||[]).forEach(function(it){ S.unitMap[ukey(it.sample)]=it.unit; if(S.unitOrder.indexOf(it.unit)<0) S.unitOrder.push(it.unit); });
+  } catch(e){}
+}
+function unitOf(s){
+  if (!S.unitMap) return '';
+  var names=Object.keys(s.names||{}).concat([s.label]);
+  for (var i=0;i<names.length;i++){ var u=S.unitMap[ukey(names[i])]; if(u) return u; }
+  return NO_UNIT;
+}
+function fillUnits(){
+  var sel=$('#fUnit'); if(!S.unitMap){ sel.classList.add('hide'); return; }
+  var cnt={}; S.samples.forEach(function(s){ cnt[s.unit]=(cnt[s.unit]||0)+1; });
+  var order=S.unitOrder.filter(function(u){return u!=='Khác';}).sort(function(a,b){return a.localeCompare(b,'vi');});
+  if (S.unitOrder.indexOf('Khác')>=0) order.push('Khác');
+  if (cnt[NO_UNIT]) order.push(NO_UNIT);
+  if (S.unit && order.indexOf(S.unit)<0) S.unit='';
+  sel.innerHTML='<option value="">Tất cả unit</option>'+order.map(function(u){ return '<option value="'+esc(u)+'">'+esc(u)+' ('+(cnt[u]||0)+')</option>'; }).join('');
+  sel.value=S.unit; sel.classList.toggle('on', !!S.unit);
 }
 function fillMonths(){
   var sel=$('#fMonth'), seen={}, ms=[];
@@ -589,7 +618,7 @@ function renderSample(){
   var s=S.sIdx[S.sel];
   if (!s){ $('#sTitle').textContent='Chọn một điểm mẫu'; $('#sMeta').textContent=''; $('#sCharts').innerHTML=''; return; }
   var mine=recs.filter(function(r){return r.sk===s.key;});
-  $('#sTitle').textContent=s.label; $('#sMeta').textContent=(s.point?s.point+' · ':'')+mine.length+' kết quả trong khoảng đã chọn';
+  $('#sTitle').textContent=s.label; $('#sMeta').textContent=(s.unit?'Unit: '+s.unit+' · ':'')+(s.point?s.point+' · ':'')+mine.length+' kết quả trong khoảng đã chọn';
   var byC={}; mine.forEach(function(r){ (byC[r.comp]=byC[r.comp]||[]).push(r); });
   var comps=Object.keys(byC).filter(function(c){ return byC[c].some(function(r){return r.v!=null;}); })
     .sort(function(a,b){ return byC[b].length-byC[a].length; });
@@ -720,6 +749,8 @@ $('#fMonth').onchange=function(){ if(this.value) setRange('m:'+this.value); else
 function onCustom(){ var a=$('#fFrom').value, b=$('#fTo').value; if(!a && !b){ setRange('30'); return; } if(a && b && a>b){ var t=a; a=b; b=t; } setRange('c:'+a+':'+b); }
 $('#fFrom').onchange=onCustom; $('#fTo').onchange=onCustom;
 $('#fType').onchange=function(){ S.type=this.value; render(); };
+$('#fUnit').onchange=function(){ S.unit=this.value; this.classList.toggle('on',!!S.unit); try{localStorage.setItem('kqpt-unit',S.unit);}catch(_){} render(); };
+try { S.unit = localStorage.getItem('kqpt-unit')||''; } catch(e){}
 $('#fKip').onchange=function(){ S.kip=this.value; render(); };
 $('#sampleCards').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(!c) return; var ch=e.target.closest('.chip.out'); if(ch){ showOut(c.dataset.sk, ch.dataset.comp); return; } if(e.target.closest('.badge')){ showOut(c.dataset.sk, null); return; } goSample(c.dataset.sk); };
 $('#outTable').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(c) goSample(c.dataset.sk); };
@@ -730,7 +761,7 @@ $('#dOut').onchange=renderData; $('#dCsv').onclick=exportCsv;
 $('#dirInput').addEventListener('change', function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value=''; upload(f); });
 var rz; window.addEventListener('resize', function(){ clearTimeout(rz); rz=setTimeout(function(){ render(); if(ZOOM.i>=0) drawZoom(); },150); });
 render();
-connect();
+loadUnits().then(connect);
 checkAuth();
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState==='visible' && !S.busy){ connect(); checkAuth(); } });
 })();
