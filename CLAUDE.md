@@ -44,3 +44,9 @@ Người dùng sửa Excel/CSV trong thư mục OneDrive rồi nhắn; Claude t�
 - Nguồn dữ liệu nhân sự trên máy người dùng: `C:\Users\Admin\OneDrive - PVFCCo\App Xuong Phu tro\Xuong Phu tro\Dashboard\Bao_cao_nhan_su_2026.csv` (xác nhận 17/11/2026; năm sau có thể là `Bao_cao_nhan_su_YYYY.csv`). Khi người dùng nhờ cập nhật: lấy file CSV/Excel mới nhất trong thư mục đó → chuyển thành `web/data/nhansu.json` (updatedAt = hiện tại) → kiểm tra web → commit “Cập nhật dữ liệu nhân sự”.
 - CSV gốc (Bao_cao_nhan_su_YYYY.csv): cột "Cương vị đang đảm nhận" được chuẩn hóa (Nồi Hơi→Nồi hơi, Raw→RAW, DEMI→Demi, Nitơ- MN→Nitơ-MN, WWT→XLNT); cột đào tạo đánh dấu "x".
 - Người dùng chọn: tab Nhân sự công khai (không cần đăng nhập để xem).
+
+## Tab Kết quả phân tích (25/11/2026)
+- Tab thứ 3 trong index.html: `data-t="kq"`, hash `#ket-qua-phan-tich`, iframe `web/ketqua.html` (allow fullscreen/clipboard). Các tab iframe khai báo ở hằng `FRAMES` trong index.html (thêm tab mới = thêm 1 mục + 1 `<a>` + 1 `<iframe class="xframe">`).
+- ketqua.html lấy từ trang Claude "Theo dõi kết quả phân tích – Xưởng Phụ trợ" (artifact 51b9a247…, do cuộc chat khác của người dùng tạo); bộ đọc phiếu `web/lib/kq/parser.js` + pdf.js (`pdf.min.js`, `pdf.worker.min.js`) giữ nguyên bản gốc, PARSER_VERSION 9.
+- Nguồn phiếu: thư mục `…\Xuong Phu tro\Kết quả phân tích\2026\THANG n\*.pdf` (~1.260 phiếu năm 2026). Quản trị viên đăng nhập → *⬆ Nạp phiếu mới* → chọn thư mục; trình duyệt đọc PDF, gửi lên `PUT /api/ketqua` (≤100 phiếu/gói, cần phiên đăng nhập) → KV `kq:b:<thời điểm>`. `GET /api/ketqua` ghép các gói (không parse, tiết kiệm CPU gói Free). Trang còn đọc thêm `web/data/ketqua.json` ({at, reports}) nếu có. Mã phiếu trùng thì gói sau đè gói trước. `POST /api/ketqua/reset` xóa mọi gói đã nạp.
+- Claude tự đọc phiếu khi cần (không qua web): công cụ trong phiên ở /home/claude/kq (harness pdf.js + playwright); có thể ghi kết quả vào web/data/ketqua.json.

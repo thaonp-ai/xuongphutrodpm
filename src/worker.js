@@ -10,7 +10,7 @@
 //
 // /api/nhansu: dữ liệu tab Nhân sự. Xem công khai; sửa cần đăng nhập.
 //   Nguồn = bản mới hơn (updatedAt) giữa KV "current" và file web/data/nhansu.json.
-// KV binding NHANSU (Wrangler tự tạo khi triển khai): current, prev, account, sess:<token>, fail:<ip>.
+// KV binding NHANSU (Wrangler tự tạo khi triển khai): current, prev, account, sess:<token>, fail:<ip>, kq:b:<thời điểm> (phiếu kết quả phân tích).
 
 const FILE = "/data/nhansu.json";
 const TRAIN = ["TC", "DCS", "NH", "GT", "RIVER", "DEMI", "NITO", "RAW", "NH3", "XLNT", "NHR"];
@@ -189,6 +189,53 @@ async function api(req, env, url) {
     if (cur) await env.NHANSU.put("prev", cur);
     await env.NHANSU.delete("current");
     return json({ ok: true });
+  }
+  // ---------- kết quả phân tích ----------
+  // Mỗi lần nạp phiếu (trên web) lưu 1 khóa KV "kq:b:<thời điểm>" = {at, by, reports:{id: phiếu đã đọc}}.
+  // GET ghép các khóa thành {"batches":[...]} mà không parse (tiết kiệm CPU); trang tự gộp, khóa sau đè khóa trước.
+  if (p === "/api/ketqua" && m === "GET") {
+    if (!env.NHANSU) return json({ batches: [] });
+    const keys = [];
+    let cursor;
+    do {
+      const l = await env.NHANSU.list({ prefix: "kq:b:", cursor });
+      l.keys.forEach((k) => keys.push(k.name));
+      cursor = l.list_complete ? null : l.cursor;
+    } while (cursor);
+    keys.sort();
+    const vals = await Promise.all(keys.map((k) => env.NHANSU.get(k)));
+    return new Response('{"batches":[' + vals.filter(Boolean).join(",") + "]}", {
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+  if (p === "/api/ketqua" && m === "PUT") {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    const user = await sessionUser(req, env);
+    if (!user) return json(NEED_LOGIN, 401);
+    const text = await req.text();
+    if (text.length > 1.5e6) return json({ error: "Gói dữ liệu quá lớn" }, 413);
+    let b;
+    try { b = JSON.parse(text); } catch { return json({ error: "Dữ liệu không hợp lệ" }, 400); }
+    const reps = b && b.reports;
+    if (!reps || typeof reps !== "object" || Array.isArray(reps)) return json({ error: "Thiếu danh sách phiếu" }, 400);
+    const ids = Object.keys(reps);
+    if (!ids.length || ids.length > 500 || ids.some((id) => !/^[A-Za-z0-9_-]{1,40}$/.test(id) || !reps[id] || !Array.isArray(reps[id].rows)))
+      return json({ error: "Danh sách phiếu không hợp lệ" }, 400);
+    const at = new Date().toISOString();
+    const key = "kq:b:" + Date.now().toString(36).padStart(10, "0") + "-" + Math.random().toString(36).slice(2, 8);
+    await env.NHANSU.put(key, JSON.stringify({ at, by: user, reports: reps }));
+    return json({ ok: true, key, n: ids.length, at });
+  }
+  if (p === "/api/ketqua/reset" && m === "POST") {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    if (!(await sessionUser(req, env))) return json(NEED_LOGIN, 401);
+    let cursor, n = 0;
+    do {
+      const l = await env.NHANSU.list({ prefix: "kq:b:", cursor });
+      for (const k of l.keys) { await env.NHANSU.delete(k.name); n++; }
+      cursor = l.list_complete ? null : l.cursor;
+    } while (cursor);
+    return json({ ok: true, deleted: n });
   }
   return json({ error: "Không tìm thấy" }, 404);
 }

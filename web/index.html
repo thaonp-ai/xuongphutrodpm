@@ -173,8 +173,8 @@ html.hosted .tabsw{display:inline-flex}
 .tabsw a{color:#fff;text-decoration:none;padding:5px 12px;border-radius:7px;font-weight:600;opacity:.88;white-space:nowrap}
 .tabsw a:hover{opacity:1;background:rgba(255,255,255,.12)}
 .tabsw a.on{background:#fff;color:var(--teal-dd);opacity:1}
-#hrFrame{display:none;position:fixed;left:0;right:0;bottom:0;width:100%;border:0;background:#f4f5f8}
-body.tab-hr #hrFrame{display:block}
+.xframe{display:none;position:fixed;left:0;right:0;bottom:0;width:100%;border:0;background:#f4f5f8}
+.xframe.show{display:block}
 body.tab-hr{overflow:hidden}
 /* tab Nhân sự không có thanh cuộn ngoài: bù bề rộng thanh cuộn để header không xê dịch */
 body.tab-hr .toolbar{padding-right:var(--sbw,0px)}
@@ -207,7 +207,7 @@ html.hosted #authBox{display:block}
 @page{size:A4 portrait;margin:10mm 11mm 10mm 11mm}
 @media print{
   body{background:#fff;font-size:12px}
-  .toolbar,.drop-hint,.no-print,#hrFrame{display:none!important}
+  .toolbar,.drop-hint,.no-print,.xframe{display:none!important}
   .wrap{padding:0}
   .sheet{width:auto;box-shadow:none;padding:0;border-radius:0}
   .sec{break-inside:auto}
@@ -223,7 +223,7 @@ html.hosted #authBox{display:block}
 <body>
 <div class="toolbar no-print">
   <div class="in">
-    <div class="brand"><span class="dot"></span><span id="brandTxt">Xưởng Phụ Trợ</span><nav class="tabsw" id="mainTabs"><a href="#" data-t="bt" class="on">🦺 Bảng tin an toàn</a><a href="#nhan-su" data-t="hr">👥 Nhân sự</a></nav></div>
+    <div class="brand"><span class="dot"></span><span id="brandTxt">Xưởng Phụ Trợ</span><nav class="tabsw" id="mainTabs"><a href="#" data-t="bt" class="on">🦺 Bảng tin an toàn</a><a href="#nhan-su" data-t="hr">👥 Nhân sự</a><a href="#ket-qua-phan-tich" data-t="kq">🧪 Kết quả phân tích</a></nav></div>
     <button class="btn" id="btnOpen" title="Chọn file Excel dữ liệu">📂 Mở file Excel</button>
     <button class="btn" id="btnReconnect" hidden>🔄 Kết nối lại</button>
     <button class="btn" id="btnReload" hidden title="Đọc lại file Excel ngay">⟳ Tải lại</button>
@@ -238,7 +238,8 @@ html.hosted #authBox{display:block}
 <input type="file" id="fileInput" accept=".xlsx,.xlsm" hidden>
 <div class="drop-hint">Thả file Excel vào đây</div>
 <div class="wrap"><div class="sheet" id="sheet"></div></div>
-<iframe id="hrFrame" title="Nhân sự Xưởng Phụ Trợ"></iframe>
+<iframe id="hrFrame" class="xframe" title="Nhân sự Xưởng Phụ Trợ"></iframe>
+<iframe id="kqFrame" class="xframe" title="Kết quả phân tích Xưởng Phụ Trợ" allow="fullscreen; clipboard-write" allowfullscreen></iframe>
 <div class="xa-ov" id="ovAuth"><form class="xa-dlg" id="fmAuth" autocomplete="on"><h3>Đăng nhập quản trị</h3><p>Dành cho quản trị viên web Xưởng Phụ Trợ. Sau khi đăng nhập mới chỉnh sửa được dữ liệu.</p>
 <label for="auUser">Tên đăng nhập</label><input id="auUser" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required>
 <label for="auPass">Mật khẩu</label><input id="auPass" name="password" type="password" autocomplete="current-password" required>
@@ -687,7 +688,7 @@ $("btnReload").onclick=()=>readHandle(true);
 $("btnReconnect").onclick=async()=>{try{if(await handle.requestPermission({mode:"read"})==="granted"){showHandleUi();await readHandle(true);}}catch(e){setStatus("Không kết nối lại được: "+e.message,"err");}};
 $("selWeek").onchange=e=>{CUR=+e.target.value;followLatest=MODEL&&CUR===MODEL.weeks[MODEL.weeks.length-1].key;render();
   const x=MODEL.weeks.find(k=>k.key===CUR);if(VIEWER&&x)try{history.replaceState(null,"","#tuan-"+x.w+"-"+x.y);}catch(err){}};
-function applyHash(){if(HOSTED)setMainTab(location.hash==="#nhan-su");const m=/^#tuan-(\d+)-(\d+)$/.exec(location.hash||"");if(m&&MODEL){const x=MODEL.weeks.find(k=>k.w===+m[1]&&k.y===+m[2]);if(x){CUR=x.key;followLatest=false;fillWeeks();render();}}}
+function applyHash(){if(HOSTED)setMainTab(tabFromHash());const m=/^#tuan-(\d+)-(\d+)$/.exec(location.hash||"");if(m&&MODEL){const x=MODEL.weeks.find(k=>k.w===+m[1]&&k.y===+m[2]);if(x){CUR=x.key;followLatest=false;fillWeeks();render();}}}
 addEventListener("hashchange",applyHash);
 const IN_FRAME=(()=>{try{return window.self!==window.top;}catch(e){return true;}})();
 $("btnPrint").onclick=()=>{if(IN_FRAME)exportPdf();else window.print();};
@@ -726,28 +727,33 @@ addEventListener("drop",async e=>{e.preventDefault();if(VIEWER)return;dc=0;docum
 let BT_TITLE=null;
 const SBW=(()=>{const d=document.createElement("div");d.style.cssText="position:absolute;top:-999px;width:100px;height:100px;overflow:scroll";document.body.appendChild(d);const w=d.offsetWidth-d.clientWidth;d.remove();return w;})();
 document.documentElement.style.setProperty("--sbw",SBW+"px");
-function sizeFrame(){const t=document.querySelector(".toolbar");$("hrFrame").style.top=t.offsetHeight+"px";$("hrFrame").style.height=(innerHeight-t.offsetHeight)+"px";}
-function setMainTab(hr){
-  const was=document.body.classList.contains("tab-hr");
-  document.body.classList.toggle("tab-hr",hr);
-  document.querySelectorAll("#mainTabs a").forEach(a=>a.classList.toggle("on",(a.dataset.t==="hr")===hr));
-  if(hr){const f=$("hrFrame");if(!f.getAttribute("src"))f.src="nhansu.html";sizeFrame();if(!was)BT_TITLE=document.title;document.title="Nhân sự – Xưởng Phụ Trợ";}
+const FRAMES={hr:{id:"hrFrame",src:"nhansu.html",hash:"#nhan-su",title:"Nhân sự – Xưởng Phụ Trợ"},kq:{id:"kqFrame",src:"ketqua.html",hash:"#ket-qua-phan-tich",title:"Kết quả phân tích – Xưởng Phụ Trợ"}};
+function tabFromHash(){for(const k in FRAMES)if(location.hash===FRAMES[k].hash)return k;return "bt";}
+function sizeFrame(){const t=document.querySelector(".toolbar");document.querySelectorAll(".xframe").forEach(f=>{f.style.top=t.offsetHeight+"px";f.style.height=(innerHeight-t.offsetHeight)+"px";});}
+function setMainTab(t){
+  if(t===true)t="hr";if(t===false||!FRAMES[t])t=t==="bt"||t===false?"bt":"bt";
+  const was=document.body.classList.contains("tab-hr"),on=t!=="bt";
+  document.body.classList.toggle("tab-hr",on);
+  document.querySelectorAll("#mainTabs a").forEach(a=>a.classList.toggle("on",a.dataset.t===t));
+  for(const k in FRAMES){const f=$(FRAMES[k].id);f.classList.toggle("show",k===t);if(k===t&&!f.getAttribute("src"))f.src=FRAMES[k].src;}
+  if(on){sizeFrame();if(!was)BT_TITLE=document.title;document.title=FRAMES[t].title;}
   else if(was){if(BT_TITLE)document.title=BT_TITLE;}
 }
 $("mainTabs").onclick=e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();
-  if(a.dataset.t==="hr"){if(location.hash!=="#nhan-su")location.hash="nhan-su";else setMainTab(true);return;}
+  const F=FRAMES[a.dataset.t];
+  if(F){if(location.hash!==F.hash)location.hash=F.hash.slice(1);else setMainTab(a.dataset.t);return;}
   const x=MODEL&&MODEL.weeks.find(k=>k.key===CUR);
-  if(x)location.hash="tuan-"+x.w+"-"+x.y;else{try{history.replaceState(null,"",location.pathname+location.search)}catch(err){}setMainTab(false);}};
+  if(x)location.hash="tuan-"+x.w+"-"+x.y;else{try{history.replaceState(null,"",location.pathname+location.search)}catch(err){}setMainTab("bt");}};
 addEventListener("resize",()=>{if(document.body.classList.contains("tab-hr"))sizeFrame();});
 if(!HOSTED)$("brandTxt").textContent="Bảng tin An toàn hàng tuần";
-if(HOSTED&&location.hash==="#nhan-su")setMainTab(true);
+if(HOSTED&&tabFromHash()!=="bt")setMainTab(tabFromHash());
 
 /* ===== Đăng nhập quản trị dùng chung (API /api/auth/*, cookie phiên) ===== */
 let AUTH_USER=null;
 function xaToast(t){const e=$("xaToast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),2600);}
 function setAuth(u){AUTH_USER=u||null;const b=$("btnAuth");b.textContent=AUTH_USER?"👤 "+AUTH_USER+" ▾":"🔒 Đăng nhập";b.classList.toggle("on",!!AUTH_USER);$("authWho").textContent=AUTH_USER||"";
   document.documentElement.classList.toggle("is-admin",!!AUTH_USER);
-  try{const f=$("hrFrame");if(f.contentWindow)f.contentWindow.postMessage({type:"xpt-auth",user:AUTH_USER},location.origin);}catch(e){}}
+  document.querySelectorAll(".xframe").forEach(f=>{try{if(f.contentWindow)f.contentWindow.postMessage({type:"xpt-auth",user:AUTH_USER},location.origin);}catch(e){}});}
 async function authApi(path,body){const r=await fetch("/api/auth/"+path,{method:body?"POST":"GET",credentials:"same-origin",cache:"no-store",headers:body?{"content-type":"application/json"}:{},body:body?JSON.stringify(body):undefined});
   let j={};try{j=await r.json();}catch(e){}if(!r.ok)throw new Error(j.error||("Lỗi "+r.status));return j;}
 async function refreshAuth(){try{setAuth((await authApi("me")).user);}catch(e){setAuth(null);}}
@@ -765,7 +771,7 @@ $("fmPw").onsubmit=async e=>{e.preventDefault();$("pwErr2").textContent="";
   $("pwOk2").disabled=true;try{const j=await authApi("password",{current:$("pwCur").value,next:$("pwNew").value,username:$("pwUser").value});$("ovPw").classList.remove("show");setAuth(j.user);try{localStorage.setItem("xpt_user",j.user)}catch(e){}xaToast("Đã lưu tài khoản quản trị");}
   catch(err){$("pwErr2").textContent=err.message;if(/đăng nhập/i.test(err.message))refreshAuth();}finally{$("pwOk2").disabled=false;}};
 addEventListener("message",e=>{if(e.origin===location.origin&&e.data&&e.data.type==="xpt-auth-refresh")refreshAuth();});
-$("hrFrame").addEventListener("load",()=>setAuth(AUTH_USER));
+document.querySelectorAll(".xframe").forEach(f=>f.addEventListener("load",()=>setAuth(AUTH_USER)));
 document.addEventListener("visibilitychange",()=>{if(HOSTED&&document.visibilityState==="visible")refreshAuth();});
 if(HOSTED)refreshAuth();
 
