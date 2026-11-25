@@ -251,6 +251,44 @@ async function api(req, env, url) {
       await addLog(env, me, "user.create", { note: username + (name ? " (" + name + ")" : "") });
       return json({ ok: true, users: pub() });
     }
+    // Nhập từ file Excel mẫu (mau-tai-khoan.xlsx): tạo mới / cập nhật / khóa / xóa nhiều tài khoản.
+    // Trình duyệt gửi từng nhóm nhỏ (≤5 dòng) vì mỗi mật khẩu cần băm PBKDF2.
+    if (p === "/api/users/import" && m === "POST") {
+      const rows = Array.isArray(b.rows) ? b.rows.slice(0, 5) : [];
+      const a = await getAccount(env);
+      const res = [];
+      for (const r of rows) {
+        const un = String(r.username || "").trim().toLowerCase();
+        const nm = String(r.name || "").trim().slice(0, 60);
+        const pw = String(r.password || "");
+        const out = { username: un, row: r.row };
+        if (!/^[a-z0-9._-]{3,32}$/.test(un)) { res.push({ ...out, error: "Tên đăng nhập không hợp lệ (3–32 ký tự, không dấu)" }); continue; }
+        if (a && a.user === un) { res.push({ ...out, error: "Trùng tên quản trị viên" }); continue; }
+        if (pw && pw.length < 8) { res.push({ ...out, error: "Mật khẩu cần ít nhất 8 ký tự" }); continue; }
+        if (r.remove) {
+          if (us[un]) { delete us[un]; res.push({ ...out, act: "delete" }); } else res.push({ ...out, act: "skip" });
+          continue;
+        }
+        if (!us[un]) {
+          if (!pw) { res.push({ ...out, error: "Tài khoản mới cần mật khẩu" }); continue; }
+          if (Object.keys(us).length >= 50) { res.push({ ...out, error: "Tối đa 50 tài khoản" }); continue; }
+          us[un] = { name: nm || un, role: "kq", ...(await hashPw(pw)), disabled: r.disabled === true,
+            createdAt: new Date().toISOString(), createdBy: me.user };
+          res.push({ ...out, act: "create" });
+          continue;
+        }
+        const ch = [];
+        if (nm && nm !== us[un].name) { us[un].name = nm; ch.push("tên"); }
+        if (pw) { Object.assign(us[un], await hashPw(pw)); ch.push("mật khẩu"); }
+        if (typeof r.disabled === "boolean" && r.disabled !== !!us[un].disabled) { us[un].disabled = r.disabled; ch.push(r.disabled ? "khóa" : "mở khóa"); }
+        res.push({ ...out, act: ch.length ? "update" : "same", changes: ch });
+      }
+      await env.NHANSU.put("users", JSON.stringify(us));
+      const done = res.filter((x) => ["create", "update", "delete"].includes(x.act));
+      if (done.length) await addLog(env, me, "user.import", { n: done.length,
+        note: done.map((x) => x.username + " (" + ({ create: "tạo", update: x.changes && x.changes.join("+"), delete: "xóa" })[x.act] + ")").join(", ").slice(0, 200) });
+      return json({ ok: true, results: res, users: pub() });
+    }
     if (!us[username]) return json({ error: "Không tìm thấy tài khoản" }, 404);
     if (p === "/api/users/update" && m === "POST") {
       const ch = [];

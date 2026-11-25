@@ -278,6 +278,7 @@ html:not(.is-admin) .xa-adm{display:none!important}
 <div><label for="nuName">Họ tên / ghi chú</label><input id="nuName" placeholder="vd: Nguyễn Văn A – Kíp 1"></div>
 <div><label for="nuPass">Mật khẩu (≥ 8 ký tự)</label><input id="nuPass" type="text" minlength="8" required autocomplete="new-password"></div>
 <div><button type="submit" id="nuOk">＋ Tạo tài khoản</button></div></form>
+<div class="xa-bar"><a class="xa-sm" href="data/mau-tai-khoan.xlsx" download="Mau quan ly tai khoan.xlsx" style="text-decoration:none;color:inherit">⬇ Tải file Excel mẫu</a><button class="xa-sm" id="usImport" type="button">📥 Nhập từ Excel</button><input type="file" id="usFile" accept=".xlsx" hidden><span id="usInfo" style="font-size:12.5px;color:#6b7280"></span></div>
 <div class="xa-err" id="usErr"></div>
 <div class="xa-body"><table class="xa-tbl"><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Quyền</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="usBody"></tbody></table></div>
 <div class="xa-act"><button type="button" data-xclose>Đóng</button></div></div></div>
@@ -835,8 +836,31 @@ $("usBody").onclick=async e=>{const b=e.target.closest("button[data-a]");if(!b)r
     else if(a==="del"){if(!confirm("Xóa tài khoản "+u+"? Lịch sử tải lên của tài khoản này vẫn được giữ."))return;j=await xapi("/api/users/delete",{username:u});xaToast("Đã xóa tài khoản "+u);}
     else if(a==="log"){$("ovUsers").classList.remove("show");openLog("",u);return;}
     if(j){USERS=j.users;renderUsers();}}catch(err){$("usErr").textContent=err.message;}};
+// Nhập danh sách tài khoản từ file Excel mẫu (Tên đăng nhập | Họ tên | Mật khẩu | Trạng thái | Xóa tài khoản)
+const xnorm=s=>String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase().replace(/\s+/g," ").trim();
+$("usImport").onclick=()=>{$("usFile").value="";$("usFile").click();};
+$("usFile").onchange=async()=>{const f=$("usFile").files[0];if(!f)return;$("usErr").textContent="";$("usInfo").textContent="Đang đọc "+f.name+"…";
+  try{const sheets=await parseXlsx(await f.arrayBuffer());let rows=[],found=false;
+    for(const nm in sheets){const R=sheets[nm].rows;const rk=Object.keys(R).map(Number).sort((a,b)=>a-b);
+      const hr=rk.find(r=>Object.values(R[r]).some(v=>xnorm(v)==="ten dang nhap"));if(hr==null)continue;found=true;
+      const col={};for(const c in R[hr]){const h=xnorm(R[hr][c]);if(h==="ten dang nhap")col.u=+c;else if(h.startsWith("ho ten"))col.n=+c;else if(h.startsWith("mat khau"))col.p=+c;else if(h.startsWith("trang thai"))col.s=+c;else if(h.startsWith("xoa"))col.x=+c;}
+      for(const r of rk){if(r<=hr)continue;const v=R[r],get=k=>col[k]==null||v[col[k]]==null?"":String(v[col[k]]).trim();const u=get("u");if(!u)continue;
+        const st=xnorm(get("s")),x=xnorm(get("x"));
+        rows.push({row:r,username:u.toLowerCase(),name:get("n"),password:get("p"),disabled:st?/khoa/.test(st)&&!/mo khoa/.test(st):undefined,remove:!!x&&x!=="khong"&&x!=="no"});}
+      break;}
+    if(!found)throw new Error("Không thấy cột “Tên đăng nhập” – hãy dùng file Excel mẫu.");
+    if(!rows.length)throw new Error("File chưa có tài khoản nào (điền từ dòng 5).");
+    const dup=rows.map(r=>r.username).filter((u,i,a)=>a.indexOf(u)!==i);if(dup.length)throw new Error("Trùng tên đăng nhập trong file: "+[...new Set(dup)].join(", "));
+    const have=new Set(USERS.map(u=>u.username));const nNew=rows.filter(r=>!r.remove&&!have.has(r.username)).length,nDel=rows.filter(r=>r.remove&&have.has(r.username)).length,nUpd=rows.filter(r=>!r.remove&&have.has(r.username)).length;
+    if(!confirm("File "+f.name+": "+rows.length+" dòng\n• Tạo mới: "+nNew+"\n• Cập nhật (nếu có thay đổi): "+nUpd+"\n• Xóa: "+nDel+"\n\nTài khoản không có trong file giữ nguyên. Tiếp tục?")){$("usInfo").textContent="";return;}
+    const res=[];for(let i=0;i<rows.length;i+=3){$("usInfo").textContent="Đang lưu "+Math.min(i+3,rows.length)+"/"+rows.length+"…";const j=await xapi("/api/users/import",{rows:rows.slice(i,i+3)});res.push(...j.results);USERS=j.users;renderUsers();}
+    const cnt=k=>res.filter(r=>r.act===k).length,errs=res.filter(r=>r.error);
+    $("usInfo").textContent="✓ Đã nhập: tạo "+cnt("create")+" · cập nhật "+cnt("update")+" · xóa "+cnt("delete")+" · không đổi "+(cnt("same")+cnt("skip"))+(errs.length?" · lỗi "+errs.length:"");
+    if(errs.length)$("usErr").innerHTML=errs.map(r=>"Dòng "+r.row+" ("+xesc(r.username)+"): "+xesc(r.error)).join("<br>");
+    xaToast("Đã nhập danh sách tài khoản từ Excel");}
+  catch(err){$("usInfo").textContent="";$("usErr").textContent=err.message;}};
 // Lịch sử: các gói của cùng 1 lần nạp (cùng mã "up") gộp thành 1 dòng
-const ACTS={"kq.upload":["🧪 Nạp phiếu Kết quả phân tích",""],"kq.reset":["🧪 Xóa toàn bộ phiếu đã nạp","rd"],"nhansu.save":["👥 Lưu dữ liệu Nhân sự","nv"],"nhansu.restore":["👥 Khôi phục Nhân sự từ file","nv"],"user.create":["➕ Tạo tài khoản","or"],"user.update":["✏️ Sửa tài khoản","or"],"user.delete":["🗑 Xóa tài khoản","rd"]};
+const ACTS={"kq.upload":["🧪 Nạp phiếu Kết quả phân tích",""],"kq.reset":["🧪 Xóa toàn bộ phiếu đã nạp","rd"],"nhansu.save":["👥 Lưu dữ liệu Nhân sự","nv"],"nhansu.restore":["👥 Khôi phục Nhân sự từ file","nv"],"user.create":["➕ Tạo tài khoản","or"],"user.update":["✏️ Sửa tài khoản","or"],"user.delete":["🗑 Xóa tài khoản","rd"],"user.import":["📥 Nhập tài khoản từ Excel","or"]};
 let LOG=[],LOGALL=false;
 async function openLog(act,user){$("authMenu").classList.remove("show");xaOpen("ovLog");$("lgAct").value=act||"";$("lgUser").dataset.want=user||"";$("lgBody").innerHTML='<tr><td colspan="5" style="color:#6b7280;padding:16px">Đang tải…</td></tr>';
   try{const j=await xapi("/api/log");LOG=j.items||[];LOGALL=!!j.all;}catch(e){$("lgBody").innerHTML='<tr><td colspan="5" style="color:#c23131;padding:16px">'+xesc(e.message)+'</td></tr>';return;}
