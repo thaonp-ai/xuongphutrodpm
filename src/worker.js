@@ -382,7 +382,8 @@ async function api(req, env, url) {
     keys.sort();
     const vals = await Promise.all(keys.map((k) => env.NHANSU.get(k)));
     const paths = (await env.NHANSU.get("kq:paths")) || "{}";
-    return new Response('{"batches":[' + vals.filter(Boolean).join(",") + '],"paths":' + paths + "}", {
+    const del = (await env.NHANSU.get("kq:del")) || "{}";
+    return new Response('{"batches":[' + vals.filter(Boolean).join(",") + '],"paths":' + paths + ',"deleted":' + del + "}", {
       headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
     });
   }
@@ -403,6 +404,9 @@ async function api(req, env, url) {
     const at = new Date().toISOString();
     const key = "kq:b:" + Date.now().toString(36).padStart(10, "0") + "-" + Math.random().toString(36).slice(2, 8);
     await env.NHANSU.put(key, JSON.stringify({ at, by: user, reports: reps }));
+    // nạp lại phiếu đã xóa → bỏ dấu xóa
+    const del = await env.NHANSU.get("kq:del", "json");
+    if (del && ids.some((id) => del[id])) { ids.forEach((id) => delete del[id]); await env.NHANSU.put("kq:del", JSON.stringify(del)); }
     const files = ids.map((id) => String(reps[id].file || id).slice(0, 120));
     await addLog(env, me, "kq.upload", { n: ids.length, up: b.up }, { files, batch: key });
     return json({ ok: true, key, n: ids.length, at });
@@ -425,6 +429,24 @@ async function api(req, env, url) {
     if (n) await env.NHANSU.put("kq:paths", JSON.stringify(cur));
     return json({ ok: true, changed: n });
   }
+  // Xóa từng phiếu (chỉ quản trị viên): ghi dấu xóa vào KV "kq:del" {mã: {at, by, file}} — không phải sửa các gói kq:b:
+  // (tiết kiệm CPU); trang bỏ các phiếu có dấu xóa mới hơn lần nạp. Nạp lại phiếu đó → dấu xóa bị gỡ.
+  if (p === "/api/ketqua/delete" && m === "POST") {
+    if (!env.NHANSU) return json(NEED_KV, 503);
+    const me = await sessionInfo(req, env);
+    if (!me || me.role !== "admin") return json({ error: "Chỉ quản trị viên được xóa phiếu" }, 403);
+    const b = await body();
+    const items = b && b.items && typeof b.items === "object" ? b.items : {};
+    const ids = Object.keys(items).filter((id) => /^[A-Za-z0-9_-]{1,40}$/.test(id)).slice(0, 3000);
+    if (!ids.length) return json({ error: "Chưa chọn phiếu" }, 400);
+    const del = (await env.NHANSU.get("kq:del", "json")) || {};
+    const at = new Date().toISOString();
+    const files = ids.map((id) => String(items[id] || id).slice(0, 120));
+    ids.forEach((id, i) => { del[id] = { at, by: me.user, file: files[i] }; });
+    await env.NHANSU.put("kq:del", JSON.stringify(del));
+    await addLog(env, me, "kq.delete", { n: ids.length, note: String(b.reason || "").slice(0, 200) }, { files });
+    return json({ ok: true, n: ids.length, at });
+  }
   if (p === "/api/ketqua/reset" && m === "POST") {
     if (!env.NHANSU) return json(NEED_KV, 503);
     const me = await sessionInfo(req, env);
@@ -435,6 +457,7 @@ async function api(req, env, url) {
       for (const k of l.keys) { await env.NHANSU.delete(k.name); n++; }
       cursor = l.list_complete ? null : l.cursor;
     } while (cursor);
+    await env.NHANSU.delete("kq:del");
     await addLog(env, me, "kq.reset", { n });
     return json({ ok: true, deleted: n });
   }

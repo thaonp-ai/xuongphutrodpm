@@ -165,6 +165,16 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
 .toolbar h3::before{content:"";display:inline-block;width:4px;height:15px;border-radius:2px;margin-right:8px;vertical-align:-2px;background:linear-gradient(180deg,#DF6437,#009D48)}
 .odlg .hd{background:linear-gradient(90deg,#FDEEE7,#fff);border-radius:12px 12px 0 0}
 .kpis .kpi.bump{animation:kbump .9s ease-out}
+body:not(.is-root) .root{display:none!important}
+.btn.danger{color:#c23131;border-color:#f2c9c9;background:#fff}.btn.danger:hover{background:#fbe7e6}
+.btn.dangerfill{background:#c23131;border-color:#c23131;color:#fff}.btn.dangerfill:disabled{opacity:.5;cursor:not-allowed}
+#mdlg .box{width:min(980px,100%)}
+#mdlg .hd h2{color:#c23131}
+#mdlg .info{background:#FDEEE7;border:1px solid #f6cdb9;color:#7a3416;border-radius:9px;padding:9px 12px;margin:10px 0 4px;font-size:13px}
+#mdlg .mbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 6px}
+#mdlg tr.sel td{background:#fff5f2}
+#mdlg td.c,#mdlg th.c{width:30px;text-align:center}
+#mdlg .path{font-size:11.5px;color:var(--text-2)}
 @keyframes kbump{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 45%,transparent);transform:scale(1)}30%{transform:scale(1.03)}100%{box-shadow:0 0 0 12px transparent;transform:scale(1)}}
 </style>
 </head>
@@ -253,6 +263,7 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
         <input type="search" id="dSearch" placeholder="Lọc theo điểm mẫu, chỉ tiêu, tên phiếu…" style="flex:1;min-width:240px">
         <label class="sub"><input type="checkbox" id="dOut"> Chỉ vượt giới hạn</label>
         <button class="btn" id="dCsv">📋 Sao chép bảng (dán vào Excel)</button>
+        <button class="btn danger root" id="dDel" title="Xóa phiếu khỏi web (chỉ quản trị viên)">🗑 Xóa phiếu…</button>
       </div>
       <div class="meta" id="dMeta"></div>
       <div class="scroll" style="max-height:calc(100vh - 260px)"><table id="dTable"></table></div>
@@ -263,6 +274,10 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
 </main>
 <div class="zoom hide" id="zoom" role="dialog" aria-modal="true" aria-label="Biểu đồ phóng to"><div class="zhead"><div style="min-width:0"><h2 id="zTitle"></h2><div class="meta" id="zMeta"></div></div><div class="znav"><button class="btn" id="zPrev" title="Biểu đồ trước (←)">‹</button><button class="btn" id="zNext" title="Biểu đồ sau (→)">›</button><button class="btn" id="zClose" title="Đóng (Esc)">✕ Đóng</button></div></div><div class="zbody"><div class="chartbox" id="zChart"></div></div></div>
 <div class="tip" id="tip"></div>
+<div class="odlg hide" id="mdlg" role="dialog" aria-modal="true"><div class="box"><div class="hd"><div style="flex:1;min-width:0"><h2>🗑 Xóa phiếu khỏi web</h2><div class="meta">Chỉ quản trị viên. Số liệu của phiếu bị xóa không còn trên biểu đồ/bảng. File PDF trên OneDrive không bị ảnh hưởng; nạp lại file đó là phiếu trở lại.</div></div><button class="btn" id="mClose">✕ Đóng</button></div>
+<div class="bd"><div class="info hide" id="mInfo"></div><div class="mbar"><input type="search" id="mSearch" placeholder="Tìm theo tên phiếu, ngày (vd 9.11.26), thư mục…" style="flex:1;min-width:240px"><label class="sub"><input type="checkbox" id="mOnlySel"> Chỉ phiếu đã chọn</label><span class="sub" id="mCount"></span></div>
+<table id="mTable"></table></div>
+<div class="ft"><span class="sub" id="mSelTxt" style="margin-right:auto"></span><button class="btn" id="mClose2">Hủy</button><button class="btn dangerfill" id="mDo" disabled>🗑 Xóa phiếu đã chọn</button></div></div></div>
 <div class="odlg hide" id="odlg" role="dialog" aria-modal="true"><div class="box"><div class="hd"><div style="flex:1;min-width:0"><h2 id="oTitle"></h2><div class="meta" id="oMeta"></div></div><button class="btn" id="oClose">✕ Đóng</button></div><div class="bd"><table id="oTable"></table></div><div class="ft"><button class="btn" id="oChart">📈 Xem biểu đồ điểm mẫu</button><button class="btn primary" id="oClose2">Đóng</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="lib/kq/parser.js"></script>
@@ -273,7 +288,7 @@ var $ = function(s){ return document.querySelector(s); };
 var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
 var PARSER_VERSION = 9;
-var S = { local:{}, prevKpi:[], paths:{}, pdfBase:'', unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
+var S = { deleted:{}, local:{}, prevKpi:[], paths:{}, pdfBase:'', unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
 try { var rg = localStorage.getItem('kqpt-range'); if (rg) S.range = rg; } catch(e){}
 
 /* ---------------- pdf.js (file đi kèm trang) ---------------- */
@@ -385,13 +400,16 @@ async function connect(){
   // Dữ liệu: file tĩnh data/ketqua.json (nếu có) + các lần nạp phiếu trên web (/api/ketqua). Lần nạp sau đè lần trước theo mã phiếu.
   var merged = {}, lastAt = null, lastN = 0;
   try { var cf = await fetch('data/ketqua-config.json', {cache:'no-store'}); if (cf.ok){ var cj = await cf.json(); S.pdfBase = String(cj.pdfBase||'').replace(/\/+$/,''); } } catch(e){}
-  try { var f = await fetch('data/ketqua.json', {cache:'no-store'}); if (f.ok){ var fj = await f.json(); Object.assign(merged, fj.reports||{}); lastAt = fj.at || null; } } catch(e){}
+  var atOf = {};
+  try { var f = await fetch('data/ketqua.json', {cache:'no-store'}); if (f.ok){ var fj = await f.json(); Object.assign(merged, fj.reports||{}); lastAt = fj.at || null; Object.keys(fj.reports||{}).forEach(function(id){ atOf[id] = fj.at || ''; }); } } catch(e){}
   try {
     var r = await fetch('/api/ketqua', {cache:'no-store', credentials:'same-origin'});
-    if (r.ok){ var j = await r.json(); S.paths = j.paths || {}; (j.batches||[]).forEach(function(b){ Object.assign(merged, b.reports||{}); if (!lastAt || b.at > lastAt){ lastAt=b.at; lastN=Object.keys(b.reports||{}).length; } }); }
+    if (r.ok){ var j = await r.json(); S.paths = j.paths || {}; S.deleted = Object.assign({}, j.deleted || {}, S.delLocal || {}); (j.batches||[]).forEach(function(b){ Object.assign(merged, b.reports||{}); Object.keys(b.reports||{}).forEach(function(id){ atOf[id] = b.at || ''; }); if (!lastAt || b.at > lastAt){ lastAt=b.at; lastN=Object.keys(b.reports||{}).length; } }); }
   } catch(e){ setStatus('', 'Không tải được dữ liệu web'); }
   // Phiếu vừa nạp trong phiên này: Cloudflare KV có thể mất tới ~1 phút mới liệt kê khóa mới,
   // nên giữ bản cục bộ để số liệu cập nhật ngay, không phải tải lại trang.
+  // phiếu quản trị viên đã xóa (dấu xóa mới hơn lần nạp) → không tính
+  Object.keys(S.deleted || {}).forEach(function(id){ var d = S.deleted[id]; if (merged[id] && (atOf[id]||'') <= (d.at||'')) delete merged[id]; });
   Object.keys(S.local).forEach(function(id){ merged[id] = S.local[id]; });
   if (S.localAt && (!lastAt || S.localAt > lastAt)){ lastAt = S.localAt; lastN = S.localN; }
   S.chunks = {all:{reports:merged}}; S.meta = lastAt ? {at:lastAt, added:lastN} : {}; S.loaded = true;
@@ -883,7 +901,73 @@ $('#sList').onclick=function(e){ var c=e.target.closest('[data-sk]'); if(c){ S.s
 $('#sSearch').oninput=function(){ renderSample(); };
 $('#dSearch').oninput=function(){ clearTimeout(this._t); this._t=setTimeout(renderData,200); };
 $('#dOut').onchange=renderData; $('#dCsv').onclick=exportCsv;
-$('#dirInput').addEventListener('change', function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value=''; upload(f); });
+$('#dirInput').addEventListener('change', async function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value=''; await upload(f); syncCheck(f); });
+
+/* ---------------- xóa phiếu (chỉ quản trị viên) ---------------- */
+var M = { sel:{}, info:'' };
+function isRoot(){ return document.body.classList.contains('is-root'); }
+function openManage(pre, info){
+  if (!isRoot()) return;
+  M.sel = {}; (pre||[]).forEach(function(id){ M.sel[id]=1; });
+  $('#mInfo').innerHTML = info || ''; $('#mInfo').classList.toggle('hide', !info);
+  $('#mSearch').value = ''; $('#mOnlySel').checked = !!(pre && pre.length);
+  $('#mdlg').classList.remove('hide'); renderManage();
+}
+function closeManage(){ $('#mdlg').classList.add('hide'); }
+function renderManage(){
+  var q = KQPT.fold($('#mSearch').value||'').trim(), only = $('#mOnlySel').checked;
+  var list = S.reports.slice().sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.file < b.file ? -1 : 1); })
+    .filter(function(r){ if (only && !M.sel[r.id]) return false; if (!q) return true; return KQPT.fold(r.file + ' ' + (S.paths[r.id]||'') + ' ' + fmtDate(r.date)).indexOf(q) >= 0; });
+  M.view = list;
+  var shown = list.slice(0, 500), allOn = shown.length && shown.every(function(r){ return M.sel[r.id]; });
+  $('#mTable').innerHTML = '<thead><tr><th class="c"><input type="checkbox" id="mAll"'+(allOn?' checked':'')+' title="Chọn/bỏ tất cả phiếu đang hiện"></th><th>Tên phiếu</th><th>Ngày</th><th>Kíp</th><th style="text-align:right">Kết quả</th><th style="text-align:right">Vượt</th></tr></thead><tbody>' +
+    shown.map(function(r){ return '<tr class="'+(M.sel[r.id]?'sel':'')+'" data-id="'+r.id+'"><td class="c"><input type="checkbox"'+(M.sel[r.id]?' checked':'')+'></td><td>'+esc(r.file)+(S.paths[r.id]?'<div class="path">📁 '+esc(S.paths[r.id].split('/').slice(0,-1).join(' › '))+'</div>':'')+'</td><td style="white-space:nowrap">'+fmtDate(r.date)+'</td><td>'+esc(r.kip)+'</td><td class="num">'+r.n+'</td><td class="num">'+(r.out?'<span class="st out">'+r.out+'</span>':'')+'</td></tr>'; }).join('') +
+    (list.length > shown.length ? '<tr><td colspan="6" class="sub" style="padding:10px">… còn '+(list.length-shown.length)+' phiếu, gõ vào ô tìm để thu hẹp</td></tr>' : '') +
+    (!list.length ? '<tr><td colspan="6" class="empty">Không có phiếu phù hợp</td></tr>' : '') + '</tbody>';
+  var n = Object.keys(M.sel).length;
+  $('#mCount').textContent = list.length.toLocaleString('vi-VN') + ' phiếu';
+  $('#mSelTxt').textContent = n ? 'Đã chọn ' + n + ' phiếu' : 'Chưa chọn phiếu nào';
+  $('#mDo').disabled = !n; $('#mDo').textContent = n ? '🗑 Xóa ' + n + ' phiếu' : '🗑 Xóa phiếu đã chọn';
+}
+$('#mTable').addEventListener('click', function(e){
+  if (e.target.id === 'mAll'){ var on = e.target.checked; M.view.slice(0,500).forEach(function(r){ if (on) M.sel[r.id]=1; else delete M.sel[r.id]; }); renderManage(); return; }
+  var tr = e.target.closest('tr[data-id]'); if (!tr) return; var id = tr.dataset.id;
+  if (M.sel[id]) delete M.sel[id]; else M.sel[id]=1; renderManage();
+});
+$('#mSearch').addEventListener('input', renderManage); $('#mOnlySel').addEventListener('change', renderManage);
+$('#mClose').onclick = closeManage; $('#mClose2').onclick = closeManage;
+$('#mdlg').addEventListener('click', function(e){ if (e.target.id === 'mdlg') closeManage(); });
+$('#dDel').onclick = function(){ M.info = 0; openManage([], ''); };
+$('#mDo').onclick = async function(){
+  var ids = Object.keys(M.sel); if (!ids.length) return;
+  var byId = {}; S.reports.forEach(function(r){ byId[r.id] = r; });
+  var nRes = ids.reduce(function(s,id){ return s + ((byId[id]||{}).n||0); }, 0);
+  if (!confirm('Xóa ' + ids.length + ' phiếu (' + nRes + ' kết quả) khỏi web?\n\nFile PDF trên OneDrive không bị xóa. Muốn khôi phục: nạp lại file đó.')) return;
+  var items = {}; ids.forEach(function(id){ items[id] = (byId[id]||{}).file || id; });
+  $('#mDo').disabled = true;
+  try {
+    var r = await fetch('/api/ketqua/delete', {method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body: JSON.stringify({items: items, reason: M.info ? 'Không còn trong thư mục đã chọn' : ''})});
+    var j = {}; try { j = await r.json(); } catch(e){}
+    if (!r.ok) throw new Error(j.error || ('Lỗi ' + r.status));
+    S.delLocal = S.delLocal || {}; ids.forEach(function(id){ S.deleted[id] = S.delLocal[id] = {at: j.at}; delete S.local[id]; if (S.chunks.all) delete S.chunks.all.reports[id]; });
+    closeManage(); rebuild(); toast('Đã xóa ' + ids.length + ' phiếu khỏi web');
+  } catch(e){ toast('Không xóa được: ' + ((e && e.message) || e)); $('#mDo').disabled = false; }
+};
+// Sau khi nạp cả thư mục: phiếu có trên web (cùng phạm vi thư mục) mà không còn trong thư mục → hỏi có xóa không
+function syncCheck(files){
+  if (!isRoot()) return;
+  var list = files.filter(function(f){ return KQPT.isReportName(f.name) && f.webkitRelativePath; }); if (!list.length) return;
+  var root = list[0].webkitRelativePath.split('/')[0], scope = null;
+  if (/^20\d\d$/.test(root)) scope = root + '/';
+  else if (/^THANG\s*\d{1,2}$/i.test(root)){ var p0 = pathFor(list[0]); if (/^20\d\d\//.test(p0)) scope = p0.split('/').slice(0,2).join('/') + '/'; }
+  else if (list.some(function(f){ return f.webkitRelativePath.split('/').slice(1,-1).some(function(x){ return /^20\d\d$/.test(x); }); })) scope = '';
+  if (scope === null) return; // thư mục không theo cấu trúc năm/THANG n → không so sánh
+  var have = {}; list.forEach(function(f){ have[KQPT.docId(f.name)] = 1; });
+  var miss = S.reports.filter(function(r){ var p = S.paths[r.id]; return p && p.indexOf(scope) === 0 && !have[r.id]; }).map(function(r){ return r.id; });
+  if (!miss.length) return;
+  M.info = 1;
+  openManage(miss, '⚠ Có <b>' + miss.length + ' phiếu</b> đang có trên web nhưng <b>không còn trong thư mục “' + esc(root) + '”</b> bạn vừa chọn (có thể đã bị xóa hoặc chuyển chỗ trên OneDrive). Các phiếu này đã được chọn sẵn — bỏ chọn phiếu nào muốn giữ, rồi bấm Xóa. Bấm Hủy nếu muốn giữ tất cả.');
+}
 $('#fileInput').addEventListener('change', function(e){ var f=Array.prototype.slice.call(e.target.files); e.target.value='';
   var bad = f.filter(function(x){ return !KQPT.isReportName(x.name); });
   if (bad.length) toast(bad.length + ' file không đúng mẫu tên phiếu nên bị bỏ qua (vd: ' + bad[0].name + ')');
