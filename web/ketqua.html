@@ -126,13 +126,51 @@ select#fUnit.on,select#fMonth.on,.cust.on input{border-color:var(--accent);backg
 .zoom .zbody{flex:1;min-height:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
 .zoom .znav{display:flex;gap:6px;margin-left:auto}
 .tip{z-index:60}
+/* ---- trang trí theo màu thương hiệu PVFCCo (25/11/2026) ---- */
+body{background:linear-gradient(180deg,#EEF5F5 0,#f4f5f8 320px)}
+header{background:linear-gradient(90deg,#fff 0,#F3F9F9 55%,#EAF4F4 100%);border-bottom:0;box-shadow:0 1px 0 #D4E7E7,0 4px 14px rgba(47,111,112,.06)}
+header::before{content:"";display:block;height:3px;background:linear-gradient(90deg,#2F6F70,#549B9C 35%,#009D48 65%,#DF6437)}
+h1{color:#1F4F50}
+.hico{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;margin-right:8px;vertical-align:-7px;background:linear-gradient(135deg,#549B9C,#2F6F70);box-shadow:0 3px 8px rgba(47,111,112,.3);font-size:16px}
+nav button{display:inline-flex;align-items:center;gap:6px;border-radius:9px 9px 0 0;color:#3E6465;transition:background .15s,color .15s}
+nav button:hover{background:rgba(47,111,112,.08);color:#1F4F50}
+nav button.on{background:linear-gradient(90deg,#1F4F50,#2F6F70 60%,#549B9C);color:#fff;border-bottom-color:#DF6437;box-shadow:0 -2px 10px rgba(47,111,112,.22)}
+.seg{border-color:#CFE3E3}
+.seg button.on{background:linear-gradient(90deg,#2F6F70,#549B9C);color:#fff}
+.seg button:hover:not(.on){background:#EAF4F4}
+.btn.primary{background:linear-gradient(90deg,#DF6437,#EE8159);border-color:#DF6437;box-shadow:0 3px 10px rgba(223,100,55,.3)}
+.card{border-color:#DDE9E9;box-shadow:0 1px 2px rgba(47,111,112,.05)}
+.card h3{color:#1F4F50}
+.kpis .kpi{--c:#2F6F70;--c2:#549B9C;--t:#E6F2F2;position:relative;overflow:hidden;padding-right:58px;border-color:color-mix(in srgb,var(--c) 22%,#fff);background:linear-gradient(135deg,var(--t) 0%,#fff 62%)}
+.kpis .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--c2),var(--c))}
+.kpis .kpi:nth-child(2){--c:#354085;--c2:#5A66B8;--t:#ECEEF9}
+.kpis .kpi:nth-child(3){--c:#C9512A;--c2:#EE8159;--t:#FDEEE7}
+.kpis .kpi:nth-child(4){--c:#00843C;--c2:#22B566;--t:#E4F6EC}
+.kpis .kpi:nth-child(5){--c:#1F4F50;--c2:#549B9C;--t:#EAF4F4}
+.kpis .kpi .lbl{color:var(--c);font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+.kpis .kpi .val{color:var(--c)}
+.kpis .kpi .ic{position:absolute;right:14px;top:14px;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--c2),var(--c));color:#fff;font-size:17px;box-shadow:0 4px 10px color-mix(in srgb,var(--c) 30%,transparent)}
+.scard{border-top:3px solid #549B9C}
+.scard.bad{border-left:1px solid #DDE9E9;border-top-color:var(--crit)}
+.scard:hover{border-color:#549B9C;box-shadow:0 6px 18px rgba(47,111,112,.14);transform:translateY(-1px)}
+.scard{transition:border-color .15s,box-shadow .15s,transform .15s}
+.chartcard{border-top:3px solid #354085}
+.chartcard .last b{color:#2F6F70}
+.slist .it.on{background:linear-gradient(90deg,#DDEEEE,#F0F7F7);box-shadow:inset 3px 0 0 #2F6F70}
+.slist .it.on .n{color:#1F4F50}
+th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
+.banner{background:linear-gradient(90deg,#E6F2F2,#F3F9F9);border-color:#CFE3E3}
+.progress>i{background:linear-gradient(90deg,#2F6F70,#009D48)}
+.toolbar h3{color:#1F4F50}
+.toolbar h3::before{content:"";display:inline-block;width:4px;height:15px;border-radius:2px;margin-right:8px;vertical-align:-2px;background:linear-gradient(180deg,#DF6437,#009D48)}
+.odlg .hd{background:linear-gradient(90deg,#FDEEE7,#fff);border-radius:12px 12px 0 0}
 </style>
 </head>
 <body>
 <header>
   <div class="hwrap">
     <div>
-      <h1>🧪 Kết quả phân tích</h1>
+      <h1><span class="hico">🧪</span>Kết quả phân tích</h1>
       <div class="sub" id="srcInfo">Đang tải dữ liệu…</div>
     </div>
     <div class="grow"></div>
@@ -142,9 +180,9 @@ select#fUnit.on,select#fMonth.on,.cust.on input{border-color:var(--accent);backg
     </label>
   </div>
   <nav>
-    <button data-tab="overview" class="on">Tổng quan</button>
-    <button data-tab="sample">Biểu đồ theo điểm mẫu</button>
-    <button data-tab="data">Dữ liệu</button>
+    <button data-tab="overview" class="on">📊 Tổng quan</button>
+    <button data-tab="sample">📈 Biểu đồ theo điểm mẫu</button>
+    <button data-tab="data">📋 Dữ liệu</button>
     <div class="filters">
       <div class="seg" id="range">
         <button data-d="today">Hôm nay</button><button data-d="yday">Hôm qua</button><button data-d="7">7 ngày</button><button data-d="30" class="on">30 ngày</button><button data-d="90">90 ngày</button><button data-d="ytd">Năm nay</button><button data-d="all">Tất cả</button>
@@ -593,12 +631,12 @@ function renderOverview(){
   var lastRep = reps.slice().sort(function(a,b){return a.date<b.date?1:-1;})[0];
   var rate = judged.length ? (100*(judged.length-out.length)/judged.length) : null;
   $('#kpis').innerHTML = [
-    ['Số phiếu', reps.length, ''],
-    ['Kết quả có số liệu', recs.length.toLocaleString('vi-VN'), ''],
-    ['Vượt giới hạn', out.length, judged.length ? 'trên '+judged.length.toLocaleString('vi-VN')+' kết quả có tiêu chuẩn' : ''],
-    ['Tỷ lệ đạt', rate==null?'–':rate.toFixed(1).replace('.',',')+'%', ''],
-    ['Phiếu mới nhất', lastRep?fmtDate(lastRep.date).slice(0,5):'–', lastRep?lastRep.file.replace(/\.pdf$/i,''):'']
-  ].map(function(k,i){ return '<div class="card kpi"><div class="lbl">'+k[0]+'</div><div class="val"'+(i===2&&out.length?' style="color:var(--crit)"':'')+'>'+k[1]+'</div><div class="meta">'+esc(k[2])+'</div></div>'; }).join('');
+    ['Số phiếu', reps.length, '', '📄'],
+    ['Kết quả có số liệu', recs.length.toLocaleString('vi-VN'), '', '🔬'],
+    ['Vượt giới hạn', out.length, judged.length ? 'trên '+judged.length.toLocaleString('vi-VN')+' kết quả có tiêu chuẩn' : '', '⚠️'],
+    ['Tỷ lệ đạt', rate==null?'–':rate.toFixed(1).replace('.',',')+'%', '', '✅'],
+    ['Phiếu mới nhất', lastRep?fmtDate(lastRep.date).slice(0,5):'–', lastRep?lastRep.file.replace(/\.pdf$/i,''):'', '🕒']
+  ].map(function(k,i){ return '<div class="card kpi"><div class="ic">'+k[3]+'</div><div class="lbl">'+k[0]+'</div><div class="val"'+(i===2&&out.length?' style="color:var(--crit)"':'')+'>'+k[1]+'</div><div class="meta">'+esc(k[2])+'</div></div>'; }).join('');
   // bảng vượt
   $('#outMeta').textContent = out.length ? out.length+' kết quả, mới nhất trước' : 'Không có kết quả vượt giới hạn trong khoảng thời gian đã chọn ✓';
   $('#outTable').innerHTML = out.length ? '<tr><th>Thời gian</th><th>Điểm mẫu</th><th>Chỉ tiêu</th><th class="num">Kết quả</th><th>Mong muốn</th></tr>' +
