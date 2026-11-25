@@ -164,6 +164,8 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
 .toolbar h3{color:#1F4F50}
 .toolbar h3::before{content:"";display:inline-block;width:4px;height:15px;border-radius:2px;margin-right:8px;vertical-align:-2px;background:linear-gradient(180deg,#DF6437,#009D48)}
 .odlg .hd{background:linear-gradient(90deg,#FDEEE7,#fff);border-radius:12px 12px 0 0}
+.kpis .kpi.bump{animation:kbump .9s ease-out}
+@keyframes kbump{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 45%,transparent);transform:scale(1)}30%{transform:scale(1.03)}100%{box-shadow:0 0 0 12px transparent;transform:scale(1)}}
 </style>
 </head>
 <body>
@@ -271,7 +273,7 @@ var $ = function(s){ return document.querySelector(s); };
 var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
 var PARSER_VERSION = 9;
-var S = { paths:{}, pdfBase:'', unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
+var S = { local:{}, prevKpi:[], paths:{}, pdfBase:'', unit:'', unitMap:null, unitOrder:[], reports:[], recs:[], samples:[], sIdx:{}, tab:'overview', range:'30', type:'', kip:'', sel:null, cmpComp:null, cmpSel:{}, chunks:{}, chunkExists:{}, idxExists:{}, meta:{}, busy:false, db:null };
 try { var rg = localStorage.getItem('kqpt-range'); if (rg) S.range = rg; } catch(e){}
 
 /* ---------------- pdf.js (file đi kèm trang) ---------------- */
@@ -352,6 +354,21 @@ function rebuild(){
   fillUnits();
   render();
 }
+// Số liệu thay đổi → chạy số từ giá trị cũ tới giá trị mới và nháy sáng ô
+function animateKpis(){
+  var vals = document.querySelectorAll('#kpis .kpi .val');
+  vals.forEach(function(el, i){
+    var txt = el.textContent.trim(), prev = S.prevKpi[i]; S.prevKpi[i] = txt;
+    if (prev == null || prev === txt) return;
+    el.parentNode.classList.remove('bump'); void el.parentNode.offsetWidth; el.parentNode.classList.add('bump');
+    var num = function(t){ return /^[\d.]+$/.test(t) ? +t.replace(/\./g,'') : (/^[\d.]+,\d%$/.test(t) ? +t.replace(/\./g,'').replace(',','.').replace('%','') : NaN); };
+    var a = num(prev), b = num(txt); if (isNaN(a) || isNaN(b)) return;
+    var pct = /%$/.test(txt), t0 = performance.now(), D = 700;
+    (function step(now){ var k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3), v = a + (b - a) * e;
+      el.textContent = pct ? v.toFixed(1).replace('.', ',') + '%' : Math.round(v).toLocaleString('vi-VN');
+      if (k < 1) requestAnimationFrame(step); else el.textContent = txt; })(t0);
+  });
+}
 var rbT; function rebuildSoon(){ clearTimeout(rbT); rbT = setTimeout(rebuild, 120); }
 
 function showMeta(){
@@ -373,6 +390,10 @@ async function connect(){
     var r = await fetch('/api/ketqua', {cache:'no-store', credentials:'same-origin'});
     if (r.ok){ var j = await r.json(); S.paths = j.paths || {}; (j.batches||[]).forEach(function(b){ Object.assign(merged, b.reports||{}); if (!lastAt || b.at > lastAt){ lastAt=b.at; lastN=Object.keys(b.reports||{}).length; } }); }
   } catch(e){ setStatus('', 'Không tải được dữ liệu web'); }
+  // Phiếu vừa nạp trong phiên này: Cloudflare KV có thể mất tới ~1 phút mới liệt kê khóa mới,
+  // nên giữ bản cục bộ để số liệu cập nhật ngay, không phải tải lại trang.
+  Object.keys(S.local).forEach(function(id){ merged[id] = S.local[id]; });
+  if (S.localAt && (!lastAt || S.localAt > lastAt)){ lastAt = S.localAt; lastN = S.localN; }
   S.chunks = {all:{reports:merged}}; S.meta = lastAt ? {at:lastAt, added:lastN} : {}; S.loaded = true;
   showMeta(); rebuild();
 }
@@ -435,6 +456,9 @@ async function upload(files){
       var jj = {}; try { jj = await r.json(); } catch(e){}
       if (!r.ok){ if (r.status===401){ setAdmin(false); try{ parent!==window && parent.postMessage({type:'xpt-auth-refresh'}, location.origin); }catch(e){} } throw new Error(jj.error || ('Lỗi ' + r.status)); }
       sent += Object.keys(packs[k]).length; showProgress(k+1, packs.length, 'Đang lưu');
+      // cập nhật số liệu ngay sau mỗi gói, không chờ tải lại
+      Object.assign(S.local, packs[k]); S.localAt = jj.at || new Date().toISOString(); S.localN = sent;
+      if (S.chunks && S.chunks.all){ Object.assign(S.chunks.all.reports, packs[k]); S.meta = {at:S.localAt, added:sent}; showMeta(); rebuildSoon(); }
     }
     S.busy = false; hideProgress();
     setStatus('live', 'Đã nạp ' + sent + ' phiếu' + (errors ? ' · ' + errors + ' phiếu không đọc được' : ''));
@@ -655,6 +679,7 @@ function renderOverview(){
     ['Tỷ lệ đạt', rate==null?'–':rate.toFixed(1).replace('.',',')+'%', '', '✅'],
     ['Phiếu mới nhất', lastRep?fmtDate(lastRep.date).slice(0,5):'–', lastRep?lastRep.file.replace(/\.pdf$/i,''):'', '🕒']
   ].map(function(k,i){ return '<div class="card kpi"><div class="ic">'+k[3]+'</div><div class="lbl">'+k[0]+'</div><div class="val"'+(i===2&&out.length?' style="color:var(--crit)"':'')+'>'+k[1]+'</div><div class="meta">'+esc(k[2])+'</div></div>'; }).join('');
+  animateKpis();
   // bảng vượt
   $('#outMeta').textContent = out.length ? out.length+' kết quả, mới nhất trước' : 'Không có kết quả vượt giới hạn trong khoảng thời gian đã chọn ✓';
   $('#outTable').innerHTML = out.length ? '<tr><th>Thời gian</th><th>Điểm mẫu</th><th>Chỉ tiêu</th><th class="num">Kết quả</th><th>Mong muốn</th></tr>' +
@@ -855,6 +880,7 @@ render();
 loadUnits().then(connect);
 checkAuth();
 document.getElementById('btnHist').onclick=function(){ try{ parent!==window ? parent.postMessage({type:'xpt-open-log', act:'kq'}, location.origin) : toast('Mở từ trang chính để xem lịch sử'); }catch(e){} };
+setInterval(function(){ if (document.visibilityState==='visible' && !S.busy && S.loaded) connect(); }, 60000);
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState==='visible' && !S.busy){ connect(); checkAuth(); } });
 })();
 
