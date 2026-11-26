@@ -166,6 +166,10 @@ th{color:#2F6F70;background:#F1F8F8;border-bottom:2px solid #CFE3E3}
 .odlg .hd{background:linear-gradient(90deg,#FDEEE7,#fff);border-radius:12px 12px 0 0}
 .kpis .kpi.bump{animation:kbump .9s ease-out}
 body:not(.is-root) .root{display:none!important}
+#dTable button.trash{border:1px solid transparent;background:transparent;border-radius:7px;padding:3px 7px;cursor:pointer;font-size:14px;opacity:.45;transition:opacity .15s,background .15s,border-color .15s}
+#dTable tr:hover button.trash{opacity:.85}
+#dTable button.trash:hover{opacity:1;background:#fbe7e6;border-color:#f2c9c9}
+#dTable tr.hlDel td{background:#fff1ee}
 .btn.danger{color:#c23131;border-color:#f2c9c9;background:#fff}.btn.danger:hover{background:#fbe7e6}
 .btn.dangerfill{background:#c23131;border-color:#c23131;color:#fff}.btn.dangerfill:disabled{opacity:.5;cursor:not-allowed}
 #mdlg .box{width:min(980px,100%)}
@@ -263,7 +267,6 @@ body:not(.is-root) .root{display:none!important}
         <input type="search" id="dSearch" placeholder="Lọc theo điểm mẫu, chỉ tiêu, tên phiếu…" style="flex:1;min-width:240px">
         <label class="sub"><input type="checkbox" id="dOut"> Chỉ vượt giới hạn</label>
         <button class="btn" id="dCsv">📋 Sao chép bảng (dán vào Excel)</button>
-        <button class="btn danger root" id="dDel" title="Xóa phiếu khỏi web (chỉ quản trị viên)">🗑 Xóa phiếu…</button>
       </div>
       <div class="meta" id="dMeta"></div>
       <div class="scroll" style="max-height:calc(100vh - 260px)"><table id="dTable"></table></div>
@@ -341,7 +344,7 @@ function rebuild(){
         var s = sMap[sk] || (sMap[sk] = {key:sk, names:{}, points:{}, last:0});
         s.names[name] = (s.names[name]||0)+1; if (point) s.points[point]=(s.points[point]||0)+1;
         if (ts > s.last) s.last = ts;
-        recs.push({ts:ts, date:rep.date, time:tm?tm[0]:'', kip:R.kip, type:type, file:rep.file, sk:sk, comp:comp, unit:unit, spec:sp, specRaw:specRaw, raw:res.raw, v:res.v, flag:res.flag, status:status, note:note||''});
+        recs.push({rid:id, ts:ts, date:rep.date, time:tm?tm[0]:'', kip:R.kip, type:type, file:rep.file, sk:sk, comp:comp, unit:unit, spec:sp, specRaw:specRaw, raw:res.raw, v:res.v, flag:res.flag, status:status, note:note||''});
         R.n++; if (status==='out') R.out++;
       });
       reports.push(R);
@@ -789,9 +792,20 @@ function renderData(){
   var q=KQPT.fold($('#dSearch').value), onlyOut=$('#dOut').checked;
   dataRows=filtered().filter(function(r){ return (!onlyOut||r.status==='out') && (!q || KQPT.fold(S.sIdx[r.sk].label+' '+S.sIdx[r.sk].point+' '+r.comp+' '+r.file).indexOf(q)>=0); }).reverse();
   $('#dMeta').textContent = dataRows.length.toLocaleString('vi-VN')+' kết quả'+(dataRows.length>1000?' (hiển thị 1.000 dòng mới nhất; CSV xuất đủ)':'');
-  $('#dTable').innerHTML='<tr><th>Ngày</th><th>Giờ</th><th>Kíp</th><th>Điểm mẫu</th><th>Tên mẫu</th><th>Chỉ tiêu</th><th class="num">Kết quả</th><th>Đơn vị</th><th>Mong muốn</th><th>Đánh giá</th><th>Phiếu</th></tr>'+
-    dataRows.slice(0,1000).map(function(r){ var s=S.sIdx[r.sk]; return '<tr><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td><td>'+esc(s.point)+'</td><td>'+esc(s.label)+'</td><td>'+esc(r.comp)+'</td><td class="num">'+esc(r.raw)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.specRaw)+'</td><td>'+stHtml(r.status)+'</td>'+fileCell(r.file)+'</tr>'; }).join('');
+  $('#dTable').innerHTML='<tr><th>Ngày</th><th>Giờ</th><th>Kíp</th><th>Điểm mẫu</th><th>Tên mẫu</th><th>Chỉ tiêu</th><th class="num">Kết quả</th><th>Đơn vị</th><th>Mong muốn</th><th>Đánh giá</th><th>Phiếu</th><th class="root"></th></tr>'+
+    dataRows.slice(0,1000).map(function(r){ var s=S.sIdx[r.sk]; return '<tr><td>'+fmtDate(r.date)+'</td><td>'+esc(r.time)+'</td><td>'+esc(r.kip)+'</td><td>'+esc(s.point)+'</td><td>'+esc(s.label)+'</td><td>'+esc(r.comp)+'</td><td class="num">'+esc(r.raw)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.specRaw)+'</td><td>'+stHtml(r.status)+'</td>'+fileCell(r.file)+'<td class="root"><button class="trash" data-rid="'+r.rid+'" title="Xóa phiếu '+esc(r.file)+' khỏi web (cả phiếu, mọi kết quả)">🗑</button></td></tr>'; }).join('');
 }
+// Thùng rác cuối mỗi dòng (chỉ quản trị viên): xóa cả phiếu chứa kết quả đó
+$('#dTable').addEventListener('click', function(e){
+  var b = e.target.closest('button.trash'); if (!b || !isRoot()) return;
+  deleteReports([b.dataset.rid]);
+});
+$('#dTable').addEventListener('mouseover', function(e){
+  var b = e.target.closest('button.trash'), rid = b ? b.dataset.rid : null;
+  if (rid === $('#dTable')._hl) return; $('#dTable')._hl = rid;
+  $('#dTable').querySelectorAll('tr.hlDel').forEach(function(tr){ tr.classList.remove('hlDel'); });
+  if (rid) $('#dTable').querySelectorAll('button.trash[data-rid="'+rid+'"]').forEach(function(x){ x.closest('tr').classList.add('hlDel'); });
+});
 function exportCsv(){
   var q=function(v){ return String(v==null?'':v).replace(/[\t\r\n]+/g,' '); };
   var lines=[['Ngày','Giờ','Kíp','Tần suất','Điểm lấy mẫu','Tên mẫu','Chỉ tiêu','Kết quả','Giá trị số','Đơn vị','Giá trị mong muốn','Đánh giá','Phiếu'].join('\t')];
@@ -937,22 +951,27 @@ $('#mTable').addEventListener('click', function(e){
 $('#mSearch').addEventListener('input', renderManage); $('#mOnlySel').addEventListener('change', renderManage);
 $('#mClose').onclick = closeManage; $('#mClose2').onclick = closeManage;
 $('#mdlg').addEventListener('click', function(e){ if (e.target.id === 'mdlg') closeManage(); });
-$('#dDel').onclick = function(){ M.info = 0; openManage([], ''); };
 $('#mDo').onclick = async function(){
   var ids = Object.keys(M.sel); if (!ids.length) return;
+  $('#mDo').disabled = true;
+  var ok = await deleteReports(ids, M.info ? 'Không còn trong thư mục đã chọn' : '');
+  if (ok) closeManage(); else $('#mDo').disabled = false;
+};
+async function deleteReports(ids, reason){
   var byId = {}; S.reports.forEach(function(r){ byId[r.id] = r; });
   var nRes = ids.reduce(function(s,id){ return s + ((byId[id]||{}).n||0); }, 0);
-  if (!confirm('Xóa ' + ids.length + ' phiếu (' + nRes + ' kết quả) khỏi web?\n\nFile PDF trên OneDrive không bị xóa. Muốn khôi phục: nạp lại file đó.')) return;
+  var what = ids.length === 1 ? 'phiếu “' + ((byId[ids[0]]||{}).file || ids[0]) + '”' : ids.length + ' phiếu';
+  if (!confirm('Xóa ' + what + ' (' + nRes + ' kết quả) khỏi web?\n\nFile PDF trên OneDrive không bị xóa. Muốn khôi phục: nạp lại file đó.')) return false;
   var items = {}; ids.forEach(function(id){ items[id] = (byId[id]||{}).file || id; });
-  $('#mDo').disabled = true;
   try {
-    var r = await fetch('/api/ketqua/delete', {method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body: JSON.stringify({items: items, reason: M.info ? 'Không còn trong thư mục đã chọn' : ''})});
+    var r = await fetch('/api/ketqua/delete', {method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body: JSON.stringify({items: items, reason: reason || ''})});
     var j = {}; try { j = await r.json(); } catch(e){}
     if (!r.ok) throw new Error(j.error || ('Lỗi ' + r.status));
     S.delLocal = S.delLocal || {}; ids.forEach(function(id){ S.deleted[id] = S.delLocal[id] = {at: j.at}; delete S.local[id]; if (S.chunks.all) delete S.chunks.all.reports[id]; });
-    closeManage(); rebuild(); toast('Đã xóa ' + ids.length + ' phiếu khỏi web');
-  } catch(e){ toast('Không xóa được: ' + ((e && e.message) || e)); $('#mDo').disabled = false; }
-};
+    rebuild(); toast('Đã xóa ' + what + ' khỏi web');
+    return true;
+  } catch(e){ toast('Không xóa được: ' + ((e && e.message) || e)); return false; }
+}
 // Sau khi nạp cả thư mục: phiếu có trên web (cùng phạm vi thư mục) mà không còn trong thư mục → hỏi có xóa không
 function syncCheck(files){
   if (!isRoot()) return;
